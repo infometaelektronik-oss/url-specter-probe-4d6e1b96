@@ -917,3 +917,238 @@ function StreamRow({
     </div>
   );
 }
+
+function AiTree({
+  grouped,
+  onPlay,
+  onCopy,
+  copied,
+}: {
+  grouped: {
+    canli: AiItem[];
+    filmler: AiItem[];
+    diziler: Map<string, Map<number, AiItem[]>>;
+  };
+  onPlay: (url: string, title: string) => void;
+  onCopy: (s: string) => void;
+  copied: string | null;
+}) {
+  const [tab, setTab] = useState<"diziler" | "filmler" | "canli">("diziler");
+  const [openDizi, setOpenDizi] = useState<string | null>(null);
+  const [openSeason, setOpenSeason] = useState<string | null>(null);
+
+  return (
+    <div className="rounded-xl border border-primary/40 bg-card/60 backdrop-blur overflow-hidden">
+      <div className="flex border-b border-border bg-muted/40">
+        {(
+          [
+            ["diziler", `📺 Diziler (${grouped.diziler.size})`],
+            ["filmler", `🎬 Filmler (${grouped.filmler.length})`],
+            ["canli", `📡 Canlı TV (${grouped.canli.length})`],
+          ] as const
+        ).map(([k, label]) => (
+          <button
+            key={k}
+            onClick={() => setTab(k)}
+            className={`flex-1 px-4 py-3 text-sm font-bold transition ${
+              tab === k
+                ? "text-primary border-b-2 border-primary bg-primary/5"
+                : "text-muted-foreground hover:text-foreground"
+            }`}
+          >
+            {label}
+          </button>
+        ))}
+      </div>
+
+      <div className="p-3 max-h-[600px] overflow-y-auto">
+        {tab === "canli" && (
+          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-2">
+            {grouped.canli.map((c, i) => (
+              <button
+                key={i}
+                onClick={() => onPlay(c.url, c.title)}
+                className="flex items-center gap-3 p-3 rounded-lg border border-border hover:border-primary hover:bg-primary/5 transition text-left group"
+              >
+                <div className="w-10 h-10 rounded bg-primary/20 flex items-center justify-center text-primary text-lg">
+                  📡
+                </div>
+                <div className="flex-1 min-w-0">
+                  <div className="font-bold text-sm truncate">{c.title}</div>
+                  <div className="text-[10px] text-muted-foreground truncate font-mono">
+                    {c.url}
+                  </div>
+                </div>
+                <span className="text-primary text-xl">▶</span>
+              </button>
+            ))}
+            {grouped.canli.length === 0 && (
+              <div className="col-span-full text-center text-sm text-muted-foreground py-8">
+                Canlı kanal yok — "CANLI TV HAVUZU" butonuna bas.
+              </div>
+            )}
+          </div>
+        )}
+
+        {tab === "filmler" && (
+          <div className="space-y-1">
+            {grouped.filmler.map((f, i) => (
+              <div
+                key={i}
+                className="flex items-center gap-3 p-3 rounded-lg border border-border hover:border-secondary hover:bg-secondary/5 transition"
+              >
+                <div className="w-8 h-8 rounded bg-secondary/20 flex items-center justify-center text-secondary">
+                  🎬
+                </div>
+                <div className="flex-1 min-w-0">
+                  <div className="font-bold text-sm truncate">
+                    {f.title}
+                    {f.year ? (
+                      <span className="text-muted-foreground font-normal ml-2">
+                        ({f.year})
+                      </span>
+                    ) : null}
+                  </div>
+                  <div className="text-[10px] text-muted-foreground truncate font-mono">
+                    {f.url}
+                  </div>
+                </div>
+                <button
+                  onClick={() => onPlay(f.url, f.title)}
+                  className="text-xs px-3 py-1.5 rounded bg-secondary text-secondary-foreground font-bold"
+                >
+                  ▶ OYNAT
+                </button>
+                <button
+                  onClick={() => onCopy(f.url)}
+                  className={`text-[10px] px-2 py-1 rounded border ${
+                    copied === f.url
+                      ? "border-primary bg-primary text-primary-foreground"
+                      : "border-border text-muted-foreground"
+                  }`}
+                >
+                  {copied === f.url ? "✓" : "COPY"}
+                </button>
+              </div>
+            ))}
+            {grouped.filmler.length === 0 && (
+              <div className="text-center text-sm text-muted-foreground py-8">
+                Film yok.
+              </div>
+            )}
+          </div>
+        )}
+
+        {tab === "diziler" && (
+          <div className="space-y-1">
+            {[...grouped.diziler.entries()].map(([dizi, seasons]) => {
+              const totalEp = [...seasons.values()].reduce(
+                (n, a) => n + a.length,
+                0,
+              );
+              const isOpen = openDizi === dizi;
+              return (
+                <div key={dizi} className="rounded-lg border border-border">
+                  <button
+                    onClick={() => setOpenDizi(isOpen ? null : dizi)}
+                    className="w-full flex items-center gap-3 p-3 hover:bg-muted/30 transition text-left"
+                  >
+                    <span className="text-primary">{isOpen ? "▼" : "▶"}</span>
+                    <span className="text-lg">📺</span>
+                    <span className="font-bold text-sm flex-1 truncate">
+                      {dizi}
+                    </span>
+                    <span className="text-[10px] font-mono text-muted-foreground">
+                      {seasons.size} sezon · {totalEp} bölüm
+                    </span>
+                  </button>
+                  {isOpen && (
+                    <div className="border-t border-border bg-muted/10 p-2 space-y-1">
+                      {[...seasons.entries()]
+                        .sort((a, b) => a[0] - b[0])
+                        .map(([season, eps]) => {
+                          const sk = `${dizi}::${season}`;
+                          const sOpen = openSeason === sk;
+                          return (
+                            <div
+                              key={season}
+                              className="rounded border border-border/60"
+                            >
+                              <button
+                                onClick={() =>
+                                  setOpenSeason(sOpen ? null : sk)
+                                }
+                                className="w-full flex items-center gap-2 px-3 py-2 hover:bg-muted/30 text-left"
+                              >
+                                <span className="text-secondary">
+                                  {sOpen ? "▼" : "▶"}
+                                </span>
+                                <span className="font-semibold text-xs">
+                                  Sezon {season}
+                                </span>
+                                <span className="text-[10px] text-muted-foreground">
+                                  ({eps.length} bölüm)
+                                </span>
+                              </button>
+                              {sOpen && (
+                                <div className="border-t border-border/60 divide-y divide-border/40">
+                                  {eps
+                                    .sort(
+                                      (a, b) =>
+                                        (a.episode ?? 0) - (b.episode ?? 0),
+                                    )
+                                    .map((ep, i) => (
+                                      <div
+                                        key={i}
+                                        className="flex items-center gap-2 px-3 py-2 hover:bg-muted/20"
+                                      >
+                                        <span className="text-[10px] font-mono text-primary w-10 flex-shrink-0">
+                                          B{String(ep.episode ?? i + 1).padStart(3, "0")}
+                                        </span>
+                                        <span className="text-xs flex-1 truncate">
+                                          {ep.episodeName || `Bölüm ${ep.episode ?? i + 1}`}
+                                        </span>
+                                        <button
+                                          onClick={() =>
+                                            onPlay(
+                                              ep.url,
+                                              `${ep.title} S${ep.season ?? 1}B${ep.episode ?? i + 1}`,
+                                            )
+                                          }
+                                          className="text-[10px] px-2 py-1 rounded bg-primary/20 text-primary font-bold hover:bg-primary hover:text-primary-foreground transition"
+                                        >
+                                          ▶
+                                        </button>
+                                        <button
+                                          onClick={() => onCopy(ep.url)}
+                                          className={`text-[10px] px-2 py-1 rounded border ${
+                                            copied === ep.url
+                                              ? "border-primary bg-primary text-primary-foreground"
+                                              : "border-border text-muted-foreground"
+                                          }`}
+                                        >
+                                          {copied === ep.url ? "✓" : "URL"}
+                                        </button>
+                                      </div>
+                                    ))}
+                                </div>
+                              )}
+                            </div>
+                          );
+                        })}
+                    </div>
+                  )}
+                </div>
+              );
+            })}
+            {grouped.diziler.size === 0 && (
+              <div className="text-center text-sm text-muted-foreground py-8">
+                Dizi yok — "GEMINI AI ORGANİZE ET" butonuna bas.
+              </div>
+            )}
+          </div>
+        )}
+      </div>
+    </div>
+  );
+}
