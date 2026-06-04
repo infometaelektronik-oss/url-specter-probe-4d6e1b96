@@ -1,7 +1,20 @@
 import { createFileRoute } from "@tanstack/react-router";
 import { useServerFn } from "@tanstack/react-start";
-import { useState } from "react";
+import { useMemo, useState } from "react";
 import { crawlUrl } from "@/lib/crawl.functions";
+import { organizeMedia } from "@/lib/organize.functions";
+import { HlsPlayer } from "@/components/HlsPlayer";
+
+type AiItem = {
+  type: "dizi" | "film" | "canli";
+  title: string;
+  season?: number | null;
+  episode?: number | null;
+  episodeName?: string | null;
+  year?: number | null;
+  url: string;
+};
+
 
 export const Route = createFileRoute("/")({
   head: () => ({
@@ -183,10 +196,19 @@ function CrawlerPage() {
   const [logs, setLogs] = useState<string[]>([]);
   const [deepRunning, setDeepRunning] = useState(false);
   const [copied, setCopied] = useState<string | null>(null);
+  const organize = useServerFn(organizeMedia);
+  const [aiBusy, setAiBusy] = useState(false);
+  const [aiItems, setAiItems] = useState<AiItem[]>([]);
+  const [aiError, setAiError] = useState<string | null>(null);
+  const [player, setPlayer] = useState<{ url: string; title: string } | null>(
+    null,
+  );
+  const [tvBusy, setTvBusy] = useState(false);
 
   function pushLog(line: string) {
     setLogs((l) => [...l.slice(-40), line]);
   }
+
 
   async function runScan(target: string) {
     setError(null);
@@ -285,11 +307,100 @@ function CrawlerPage() {
     });
   }
 
+  async function runAiOrganize() {
+    setAiBusy(true);
+    setAiError(null);
+    pushLog("[AI] Gemini 2.5 Flash organizasyon motoru çağrılıyor...");
+    try {
+      const payload = {
+        rootUrl: url || undefined,
+        rootStreams: rootStreams.slice(0, 50),
+        items: items.slice(0, 250).map((i) => ({
+          title: i.name,
+          url: i.link,
+          streams: [...i.streams, ...i.iframes].slice(0, 3),
+        })),
+      };
+      const res = await organize({ data: payload });
+      if (!res.ok) {
+        setAiError(res.error);
+        pushLog(`[AI] HATA: ${res.error}`);
+        return;
+      }
+      setAiItems(res.items as AiItem[]);
+      pushLog(`[AI] ${res.items.length} kategorize medya alındı.`);
+    } catch (e) {
+      const msg = (e as Error).message;
+      setAiError(msg);
+      pushLog(`[AI] HATA: ${msg}`);
+    } finally {
+      setAiBusy(false);
+    }
+  }
+
+  async function unifyLiveTv() {
+    setTvBusy(true);
+    pushLog("[TV] Tüm ulusal kanallar paralel taranıyor...");
+    const tvPresets = PRESETS.filter((p) => p.badge === "TV" || p.badge === "LIVE");
+    const collected: { title: string; url: string; streams: string[] }[] = [];
+    await Promise.all(
+      tvPresets.map(async (p) => {
+        try {
+          const res = await crawl({ data: { url: p.url } });
+          const { streams, iframes } = extractFromHtml(res.html, res.finalUrl);
+          collected.push({
+            title: p.name,
+            url: p.url,
+            streams: [...streams, ...iframes].slice(0, 4),
+          });
+          pushLog(`[TV] ${p.name} → ${streams.length + iframes.length} kaynak`);
+        } catch {
+          pushLog(`[TV] ${p.name} atlandı (erişim hatası)`);
+        }
+      }),
+    );
+    try {
+      const res = await organize({
+        data: { rootUrl: "tv-unified", items: collected },
+      });
+      if (res.ok) {
+        setAiItems((prev) => {
+          const live = (res.items as AiItem[]).filter((i) => i.type === "canli");
+          const others = prev.filter((i) => i.type !== "canli");
+          return [...live, ...others];
+        });
+        pushLog(`[TV] AI ${res.items.length} kanal kaydı normalize etti.`);
+      } else {
+        pushLog(`[TV] AI hata: ${res.error}`);
+      }
+    } catch (e) {
+      pushLog(`[TV] AI hata: ${(e as Error).message}`);
+    }
+    setTvBusy(false);
+  }
+
   const doneCount = items.filter((i) => i.status === "done").length;
   const totalStreams =
     items.reduce((n, i) => n + i.streams.length + i.iframes.length, 0) +
     rootStreams.length +
     rootIframes.length;
+
+  const aiGrouped = useMemo(() => {
+    const canli = aiItems.filter((i) => i.type === "canli");
+    const filmler = aiItems.filter((i) => i.type === "film");
+    const diziRaw = aiItems.filter((i) => i.type === "dizi");
+    const diziler = new Map<string, Map<number, AiItem[]>>();
+    for (const d of diziRaw) {
+      const t = d.title || "Bilinmeyen Dizi";
+      const s = d.season ?? 1;
+      if (!diziler.has(t)) diziler.set(t, new Map());
+      const seasons = diziler.get(t)!;
+      if (!seasons.has(s)) seasons.set(s, []);
+      seasons.get(s)!.push(d);
+    }
+    return { canli, filmler, diziler };
+  }, [aiItems]);
+
 
   return (
     <div className="min-h-screen bg-background text-foreground relative overflow-hidden">
@@ -462,17 +573,76 @@ function CrawlerPage() {
                 <Stat label="AKIŞ + IFRAME" value={totalStreams} color="primary" />
                 <Stat label="GÖRSEL" value={images.length} color="secondary" />
               </div>
-              <button
-                onClick={deepCrawl}
-                disabled={deepRunning || items.every((i) => i.status !== "pending")}
-                className="px-4 py-2 rounded-lg text-sm font-semibold border border-secondary/50 text-secondary hover:bg-secondary/10 transition disabled:opacity-50 disabled:cursor-not-allowed flex items-center gap-2"
-              >
-                {deepRunning && (
-                  <span className="w-3 h-3 border-2 border-secondary/30 border-t-secondary rounded-full animate-orbit" />
-                )}
-                İÇERİĞİ ÇÖZ (DEEP CRAWL)
-              </button>
+              <div className="flex flex-wrap gap-2">
+                <button
+                  onClick={deepCrawl}
+                  disabled={deepRunning || items.every((i) => i.status !== "pending")}
+                  className="px-4 py-2 rounded-lg text-sm font-semibold border border-secondary/50 text-secondary hover:bg-secondary/10 transition disabled:opacity-50 disabled:cursor-not-allowed flex items-center gap-2"
+                >
+                  {deepRunning && (
+                    <span className="w-3 h-3 border-2 border-secondary/30 border-t-secondary rounded-full animate-orbit" />
+                  )}
+                  İÇERİĞİ ÇÖZ (DEEP CRAWL)
+                </button>
+                <button
+                  onClick={runAiOrganize}
+                  disabled={aiBusy || items.length === 0}
+                  className="px-4 py-2 rounded-lg text-sm font-bold text-primary-foreground transition disabled:opacity-50 disabled:cursor-not-allowed flex items-center gap-2"
+                  style={{ background: "var(--gradient-primary)" }}
+                >
+                  {aiBusy && (
+                    <span className="w-3 h-3 border-2 border-primary-foreground/30 border-t-primary-foreground rounded-full animate-orbit" />
+                  )}
+                  🤖 GEMINI AI ORGANİZE ET
+                </button>
+                <button
+                  onClick={unifyLiveTv}
+                  disabled={tvBusy}
+                  className="px-4 py-2 rounded-lg text-sm font-semibold border border-primary/50 text-primary hover:bg-primary/10 transition disabled:opacity-50 disabled:cursor-not-allowed flex items-center gap-2"
+                >
+                  {tvBusy && (
+                    <span className="w-3 h-3 border-2 border-primary/30 border-t-primary rounded-full animate-orbit" />
+                  )}
+                  📡 CANLI TV HAVUZU
+                </button>
+              </div>
             </div>
+
+            {aiError && (
+              <div className="p-3 rounded-lg border border-destructive/50 bg-destructive/10 text-sm text-destructive">
+                ⚠ {aiError}
+              </div>
+            )}
+
+            {player && (
+              <div className="p-4 rounded-xl border border-primary/40 bg-black/60 backdrop-blur">
+                <div className="flex items-center justify-between mb-3">
+                  <h3 className="text-sm font-bold text-primary truncate">
+                    ▶ {player.title}
+                  </h3>
+                  <button
+                    onClick={() => setPlayer(null)}
+                    className="text-xs px-2 py-1 rounded border border-border text-muted-foreground hover:text-foreground"
+                  >
+                    KAPAT ✕
+                  </button>
+                </div>
+                <HlsPlayer src={player.url} />
+                <div className="mt-2 text-[10px] font-mono text-muted-foreground truncate">
+                  {player.url}
+                </div>
+              </div>
+            )}
+
+            {aiItems.length > 0 && (
+              <AiTree
+                grouped={aiGrouped}
+                onPlay={(url, title) => setPlayer({ url, title })}
+                onCopy={copy}
+                copied={copied}
+              />
+            )}
+
 
             {(rootStreams.length > 0 || rootIframes.length > 0) && (
               <div className="p-4 rounded-xl border border-primary/40 bg-primary/5">
@@ -744,6 +914,241 @@ function StreamRow({
       >
         {copied ? "✓" : "COPY"}
       </button>
+    </div>
+  );
+}
+
+function AiTree({
+  grouped,
+  onPlay,
+  onCopy,
+  copied,
+}: {
+  grouped: {
+    canli: AiItem[];
+    filmler: AiItem[];
+    diziler: Map<string, Map<number, AiItem[]>>;
+  };
+  onPlay: (url: string, title: string) => void;
+  onCopy: (s: string) => void;
+  copied: string | null;
+}) {
+  const [tab, setTab] = useState<"diziler" | "filmler" | "canli">("diziler");
+  const [openDizi, setOpenDizi] = useState<string | null>(null);
+  const [openSeason, setOpenSeason] = useState<string | null>(null);
+
+  return (
+    <div className="rounded-xl border border-primary/40 bg-card/60 backdrop-blur overflow-hidden">
+      <div className="flex border-b border-border bg-muted/40">
+        {(
+          [
+            ["diziler", `📺 Diziler (${grouped.diziler.size})`],
+            ["filmler", `🎬 Filmler (${grouped.filmler.length})`],
+            ["canli", `📡 Canlı TV (${grouped.canli.length})`],
+          ] as const
+        ).map(([k, label]) => (
+          <button
+            key={k}
+            onClick={() => setTab(k)}
+            className={`flex-1 px-4 py-3 text-sm font-bold transition ${
+              tab === k
+                ? "text-primary border-b-2 border-primary bg-primary/5"
+                : "text-muted-foreground hover:text-foreground"
+            }`}
+          >
+            {label}
+          </button>
+        ))}
+      </div>
+
+      <div className="p-3 max-h-[600px] overflow-y-auto">
+        {tab === "canli" && (
+          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-2">
+            {grouped.canli.map((c, i) => (
+              <button
+                key={i}
+                onClick={() => onPlay(c.url, c.title)}
+                className="flex items-center gap-3 p-3 rounded-lg border border-border hover:border-primary hover:bg-primary/5 transition text-left group"
+              >
+                <div className="w-10 h-10 rounded bg-primary/20 flex items-center justify-center text-primary text-lg">
+                  📡
+                </div>
+                <div className="flex-1 min-w-0">
+                  <div className="font-bold text-sm truncate">{c.title}</div>
+                  <div className="text-[10px] text-muted-foreground truncate font-mono">
+                    {c.url}
+                  </div>
+                </div>
+                <span className="text-primary text-xl">▶</span>
+              </button>
+            ))}
+            {grouped.canli.length === 0 && (
+              <div className="col-span-full text-center text-sm text-muted-foreground py-8">
+                Canlı kanal yok — "CANLI TV HAVUZU" butonuna bas.
+              </div>
+            )}
+          </div>
+        )}
+
+        {tab === "filmler" && (
+          <div className="space-y-1">
+            {grouped.filmler.map((f, i) => (
+              <div
+                key={i}
+                className="flex items-center gap-3 p-3 rounded-lg border border-border hover:border-secondary hover:bg-secondary/5 transition"
+              >
+                <div className="w-8 h-8 rounded bg-secondary/20 flex items-center justify-center text-secondary">
+                  🎬
+                </div>
+                <div className="flex-1 min-w-0">
+                  <div className="font-bold text-sm truncate">
+                    {f.title}
+                    {f.year ? (
+                      <span className="text-muted-foreground font-normal ml-2">
+                        ({f.year})
+                      </span>
+                    ) : null}
+                  </div>
+                  <div className="text-[10px] text-muted-foreground truncate font-mono">
+                    {f.url}
+                  </div>
+                </div>
+                <button
+                  onClick={() => onPlay(f.url, f.title)}
+                  className="text-xs px-3 py-1.5 rounded bg-secondary text-secondary-foreground font-bold"
+                >
+                  ▶ OYNAT
+                </button>
+                <button
+                  onClick={() => onCopy(f.url)}
+                  className={`text-[10px] px-2 py-1 rounded border ${
+                    copied === f.url
+                      ? "border-primary bg-primary text-primary-foreground"
+                      : "border-border text-muted-foreground"
+                  }`}
+                >
+                  {copied === f.url ? "✓" : "COPY"}
+                </button>
+              </div>
+            ))}
+            {grouped.filmler.length === 0 && (
+              <div className="text-center text-sm text-muted-foreground py-8">
+                Film yok.
+              </div>
+            )}
+          </div>
+        )}
+
+        {tab === "diziler" && (
+          <div className="space-y-1">
+            {[...grouped.diziler.entries()].map(([dizi, seasons]) => {
+              const totalEp = [...seasons.values()].reduce(
+                (n, a) => n + a.length,
+                0,
+              );
+              const isOpen = openDizi === dizi;
+              return (
+                <div key={dizi} className="rounded-lg border border-border">
+                  <button
+                    onClick={() => setOpenDizi(isOpen ? null : dizi)}
+                    className="w-full flex items-center gap-3 p-3 hover:bg-muted/30 transition text-left"
+                  >
+                    <span className="text-primary">{isOpen ? "▼" : "▶"}</span>
+                    <span className="text-lg">📺</span>
+                    <span className="font-bold text-sm flex-1 truncate">
+                      {dizi}
+                    </span>
+                    <span className="text-[10px] font-mono text-muted-foreground">
+                      {seasons.size} sezon · {totalEp} bölüm
+                    </span>
+                  </button>
+                  {isOpen && (
+                    <div className="border-t border-border bg-muted/10 p-2 space-y-1">
+                      {[...seasons.entries()]
+                        .sort((a, b) => a[0] - b[0])
+                        .map(([season, eps]) => {
+                          const sk = `${dizi}::${season}`;
+                          const sOpen = openSeason === sk;
+                          return (
+                            <div
+                              key={season}
+                              className="rounded border border-border/60"
+                            >
+                              <button
+                                onClick={() =>
+                                  setOpenSeason(sOpen ? null : sk)
+                                }
+                                className="w-full flex items-center gap-2 px-3 py-2 hover:bg-muted/30 text-left"
+                              >
+                                <span className="text-secondary">
+                                  {sOpen ? "▼" : "▶"}
+                                </span>
+                                <span className="font-semibold text-xs">
+                                  Sezon {season}
+                                </span>
+                                <span className="text-[10px] text-muted-foreground">
+                                  ({eps.length} bölüm)
+                                </span>
+                              </button>
+                              {sOpen && (
+                                <div className="border-t border-border/60 divide-y divide-border/40">
+                                  {eps
+                                    .sort(
+                                      (a, b) =>
+                                        (a.episode ?? 0) - (b.episode ?? 0),
+                                    )
+                                    .map((ep, i) => (
+                                      <div
+                                        key={i}
+                                        className="flex items-center gap-2 px-3 py-2 hover:bg-muted/20"
+                                      >
+                                        <span className="text-[10px] font-mono text-primary w-10 flex-shrink-0">
+                                          B{String(ep.episode ?? i + 1).padStart(3, "0")}
+                                        </span>
+                                        <span className="text-xs flex-1 truncate">
+                                          {ep.episodeName || `Bölüm ${ep.episode ?? i + 1}`}
+                                        </span>
+                                        <button
+                                          onClick={() =>
+                                            onPlay(
+                                              ep.url,
+                                              `${ep.title} S${ep.season ?? 1}B${ep.episode ?? i + 1}`,
+                                            )
+                                          }
+                                          className="text-[10px] px-2 py-1 rounded bg-primary/20 text-primary font-bold hover:bg-primary hover:text-primary-foreground transition"
+                                        >
+                                          ▶
+                                        </button>
+                                        <button
+                                          onClick={() => onCopy(ep.url)}
+                                          className={`text-[10px] px-2 py-1 rounded border ${
+                                            copied === ep.url
+                                              ? "border-primary bg-primary text-primary-foreground"
+                                              : "border-border text-muted-foreground"
+                                          }`}
+                                        >
+                                          {copied === ep.url ? "✓" : "URL"}
+                                        </button>
+                                      </div>
+                                    ))}
+                                </div>
+                              )}
+                            </div>
+                          );
+                        })}
+                    </div>
+                  )}
+                </div>
+              );
+            })}
+            {grouped.diziler.size === 0 && (
+              <div className="text-center text-sm text-muted-foreground py-8">
+                Dizi yok — "GEMINI AI ORGANİZE ET" butonuna bas.
+              </div>
+            )}
+          </div>
+        )}
+      </div>
     </div>
   );
 }
