@@ -1,7 +1,20 @@
 import { createFileRoute } from "@tanstack/react-router";
 import { useServerFn } from "@tanstack/react-start";
-import { useState } from "react";
+import { useMemo, useState } from "react";
 import { crawlUrl } from "@/lib/crawl.functions";
+import { organizeMedia } from "@/lib/organize.functions";
+import { HlsPlayer } from "@/components/HlsPlayer";
+
+type AiItem = {
+  type: "dizi" | "film" | "canli";
+  title: string;
+  season?: number | null;
+  episode?: number | null;
+  episodeName?: string | null;
+  year?: number | null;
+  url: string;
+};
+
 
 export const Route = createFileRoute("/")({
   head: () => ({
