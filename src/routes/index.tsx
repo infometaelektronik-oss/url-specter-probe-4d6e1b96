@@ -307,11 +307,100 @@ function CrawlerPage() {
     });
   }
 
+  async function runAiOrganize() {
+    setAiBusy(true);
+    setAiError(null);
+    pushLog("[AI] Gemini 2.5 Flash organizasyon motoru çağrılıyor...");
+    try {
+      const payload = {
+        rootUrl: url || undefined,
+        rootStreams: rootStreams.slice(0, 50),
+        items: items.slice(0, 250).map((i) => ({
+          title: i.name,
+          url: i.link,
+          streams: [...i.streams, ...i.iframes].slice(0, 3),
+        })),
+      };
+      const res = await organize({ data: payload });
+      if (!res.ok) {
+        setAiError(res.error);
+        pushLog(`[AI] HATA: ${res.error}`);
+        return;
+      }
+      setAiItems(res.items as AiItem[]);
+      pushLog(`[AI] ${res.items.length} kategorize medya alındı.`);
+    } catch (e) {
+      const msg = (e as Error).message;
+      setAiError(msg);
+      pushLog(`[AI] HATA: ${msg}`);
+    } finally {
+      setAiBusy(false);
+    }
+  }
+
+  async function unifyLiveTv() {
+    setTvBusy(true);
+    pushLog("[TV] Tüm ulusal kanallar paralel taranıyor...");
+    const tvPresets = PRESETS.filter((p) => p.badge === "TV" || p.badge === "LIVE");
+    const collected: { title: string; url: string; streams: string[] }[] = [];
+    await Promise.all(
+      tvPresets.map(async (p) => {
+        try {
+          const res = await crawl({ data: { url: p.url } });
+          const { streams, iframes } = extractFromHtml(res.html, res.finalUrl);
+          collected.push({
+            title: p.name,
+            url: p.url,
+            streams: [...streams, ...iframes].slice(0, 4),
+          });
+          pushLog(`[TV] ${p.name} → ${streams.length + iframes.length} kaynak`);
+        } catch {
+          pushLog(`[TV] ${p.name} atlandı (erişim hatası)`);
+        }
+      }),
+    );
+    try {
+      const res = await organize({
+        data: { rootUrl: "tv-unified", items: collected },
+      });
+      if (res.ok) {
+        setAiItems((prev) => {
+          const live = (res.items as AiItem[]).filter((i) => i.type === "canli");
+          const others = prev.filter((i) => i.type !== "canli");
+          return [...live, ...others];
+        });
+        pushLog(`[TV] AI ${res.items.length} kanal kaydı normalize etti.`);
+      } else {
+        pushLog(`[TV] AI hata: ${res.error}`);
+      }
+    } catch (e) {
+      pushLog(`[TV] AI hata: ${(e as Error).message}`);
+    }
+    setTvBusy(false);
+  }
+
   const doneCount = items.filter((i) => i.status === "done").length;
   const totalStreams =
     items.reduce((n, i) => n + i.streams.length + i.iframes.length, 0) +
     rootStreams.length +
     rootIframes.length;
+
+  const aiGrouped = useMemo(() => {
+    const canli = aiItems.filter((i) => i.type === "canli");
+    const filmler = aiItems.filter((i) => i.type === "film");
+    const diziRaw = aiItems.filter((i) => i.type === "dizi");
+    const diziler = new Map<string, Map<number, AiItem[]>>();
+    for (const d of diziRaw) {
+      const t = d.title || "Bilinmeyen Dizi";
+      const s = d.season ?? 1;
+      if (!diziler.has(t)) diziler.set(t, new Map());
+      const seasons = diziler.get(t)!;
+      if (!seasons.has(s)) seasons.set(s, []);
+      seasons.get(s)!.push(d);
+    }
+    return { canli, filmler, diziler };
+  }, [aiItems]);
+
 
   return (
     <div className="min-h-screen bg-background text-foreground relative overflow-hidden">
