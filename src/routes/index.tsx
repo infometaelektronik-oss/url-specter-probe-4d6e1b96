@@ -196,10 +196,19 @@ function CrawlerPage() {
   const [logs, setLogs] = useState<string[]>([]);
   const [deepRunning, setDeepRunning] = useState(false);
   const [copied, setCopied] = useState<string | null>(null);
+  const organize = useServerFn(organizeMedia);
+  const [aiBusy, setAiBusy] = useState(false);
+  const [aiItems, setAiItems] = useState<AiItem[]>([]);
+  const [aiError, setAiError] = useState<string | null>(null);
+  const [player, setPlayer] = useState<{ url: string; title: string } | null>(
+    null,
+  );
+  const [tvBusy, setTvBusy] = useState(false);
 
   function pushLog(line: string) {
     setLogs((l) => [...l.slice(-40), line]);
   }
+
 
   async function runScan(target: string) {
     setError(null);
