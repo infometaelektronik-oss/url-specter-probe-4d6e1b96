@@ -573,17 +573,76 @@ function CrawlerPage() {
                 <Stat label="AKIŞ + IFRAME" value={totalStreams} color="primary" />
                 <Stat label="GÖRSEL" value={images.length} color="secondary" />
               </div>
-              <button
-                onClick={deepCrawl}
-                disabled={deepRunning || items.every((i) => i.status !== "pending")}
-                className="px-4 py-2 rounded-lg text-sm font-semibold border border-secondary/50 text-secondary hover:bg-secondary/10 transition disabled:opacity-50 disabled:cursor-not-allowed flex items-center gap-2"
-              >
-                {deepRunning && (
-                  <span className="w-3 h-3 border-2 border-secondary/30 border-t-secondary rounded-full animate-orbit" />
-                )}
-                İÇERİĞİ ÇÖZ (DEEP CRAWL)
-              </button>
+              <div className="flex flex-wrap gap-2">
+                <button
+                  onClick={deepCrawl}
+                  disabled={deepRunning || items.every((i) => i.status !== "pending")}
+                  className="px-4 py-2 rounded-lg text-sm font-semibold border border-secondary/50 text-secondary hover:bg-secondary/10 transition disabled:opacity-50 disabled:cursor-not-allowed flex items-center gap-2"
+                >
+                  {deepRunning && (
+                    <span className="w-3 h-3 border-2 border-secondary/30 border-t-secondary rounded-full animate-orbit" />
+                  )}
+                  İÇERİĞİ ÇÖZ (DEEP CRAWL)
+                </button>
+                <button
+                  onClick={runAiOrganize}
+                  disabled={aiBusy || items.length === 0}
+                  className="px-4 py-2 rounded-lg text-sm font-bold text-primary-foreground transition disabled:opacity-50 disabled:cursor-not-allowed flex items-center gap-2"
+                  style={{ background: "var(--gradient-primary)" }}
+                >
+                  {aiBusy && (
+                    <span className="w-3 h-3 border-2 border-primary-foreground/30 border-t-primary-foreground rounded-full animate-orbit" />
+                  )}
+                  🤖 GEMINI AI ORGANİZE ET
+                </button>
+                <button
+                  onClick={unifyLiveTv}
+                  disabled={tvBusy}
+                  className="px-4 py-2 rounded-lg text-sm font-semibold border border-primary/50 text-primary hover:bg-primary/10 transition disabled:opacity-50 disabled:cursor-not-allowed flex items-center gap-2"
+                >
+                  {tvBusy && (
+                    <span className="w-3 h-3 border-2 border-primary/30 border-t-primary rounded-full animate-orbit" />
+                  )}
+                  📡 CANLI TV HAVUZU
+                </button>
+              </div>
             </div>
+
+            {aiError && (
+              <div className="p-3 rounded-lg border border-destructive/50 bg-destructive/10 text-sm text-destructive">
+                ⚠ {aiError}
+              </div>
+            )}
+
+            {player && (
+              <div className="p-4 rounded-xl border border-primary/40 bg-black/60 backdrop-blur">
+                <div className="flex items-center justify-between mb-3">
+                  <h3 className="text-sm font-bold text-primary truncate">
+                    ▶ {player.title}
+                  </h3>
+                  <button
+                    onClick={() => setPlayer(null)}
+                    className="text-xs px-2 py-1 rounded border border-border text-muted-foreground hover:text-foreground"
+                  >
+                    KAPAT ✕
+                  </button>
+                </div>
+                <HlsPlayer src={player.url} />
+                <div className="mt-2 text-[10px] font-mono text-muted-foreground truncate">
+                  {player.url}
+                </div>
+              </div>
+            )}
+
+            {aiItems.length > 0 && (
+              <AiTree
+                grouped={aiGrouped}
+                onPlay={(url, title) => setPlayer({ url, title })}
+                onCopy={copy}
+                copied={copied}
+              />
+            )}
+
 
             {(rootStreams.length > 0 || rootIframes.length > 0) && (
               <div className="p-4 rounded-xl border border-primary/40 bg-primary/5">
