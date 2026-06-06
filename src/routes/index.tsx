@@ -307,6 +307,62 @@ function CrawlerPage() {
     });
   }
 
+  function escapeM3U(name: string) {
+    return name.replace(/[\n\r]/g, " ").trim();
+  }
+
+  function exportM3U() {
+    const lines: string[] = ["#EXTM3U"];
+    const added = new Set<string>();
+
+    function push(url: string, title: string) {
+      if (!url || added.has(url)) return;
+      added.add(url);
+      lines.push(`#EXTINF:-1,${escapeM3U(title)}`);
+      lines.push(url);
+      lines.push("");
+    }
+
+    // AI-organized items first (best titles)
+    for (const item of aiItems) {
+      let title = item.title;
+      if (item.type === "dizi" && (item.season || item.episode)) {
+        title += ` S${item.season ?? 1}E${String(item.episode ?? 1).padStart(2, "0")}`;
+        if (item.episodeName) title += ` — ${item.episodeName}`;
+      } else if (item.type === "film" && item.year) {
+        title += ` (${item.year})`;
+      }
+      push(item.url, title);
+    }
+
+    // Raw per-item streams & iframes
+    for (const item of items) {
+      for (const s of item.streams) {
+        push(s, `${item.name} — ${s.split("/").pop()?.split("?")[0] || "Akış"}`);
+      }
+      for (const s of item.iframes) {
+        push(s, `${item.name} — iframe`);
+      }
+    }
+
+    // Root-level streams & iframes
+    for (const s of rootStreams) {
+      push(s, s.split("/").pop()?.split("?")[0] || "Ana Akış");
+    }
+    for (const s of rootIframes) {
+      push(s, "Ana iframe");
+    }
+
+    const blob = new Blob([lines.join("\n")], { type: "application/vnd.apple.mpegurl" });
+    const a = document.createElement("a");
+    a.href = URL.createObjectURL(blob);
+    const host = url ? new URL(url).hostname.replace(/^www\./, "") : "playlist";
+    a.download = `${host}_${new Date().toISOString().slice(0, 10)}.m3u`;
+    a.click();
+    URL.revokeObjectURL(a.href);
+    pushLog(`[EXPORT] ${added.size} kaynak .m3u olarak indirildi.`);
+  }
+
   async function runAiOrganize() {
     setAiBusy(true);
     setAiError(null);
@@ -604,6 +660,13 @@ function CrawlerPage() {
                     <span className="w-3 h-3 border-2 border-primary/30 border-t-primary rounded-full animate-orbit" />
                   )}
                   📡 CANLI TV HAVUZU
+                </button>
+                <button
+                  onClick={exportM3U}
+                  disabled={totalStreams === 0 && aiItems.length === 0}
+                  className="px-4 py-2 rounded-lg text-sm font-semibold border border-accent/50 text-accent hover:bg-accent/10 transition disabled:opacity-50 disabled:cursor-not-allowed flex items-center gap-2"
+                >
+                  📥 M3U İNDİR
                 </button>
               </div>
             </div>
