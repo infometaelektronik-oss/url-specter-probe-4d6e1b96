@@ -2,6 +2,7 @@
   "name": "link-lens-stream",
   "private": true,
   "version": "0.0.0",
+  "sideEffects": false,
   "type": "module",
   "scripts": {
     "dev": "vite dev",

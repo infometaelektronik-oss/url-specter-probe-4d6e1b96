@@ -13,7 +13,6 @@ import { Route as IndexRouteImport } from './routes/index'
 import { Route as ApiStreamMovieRouteImport } from './routes/api/stream/movie'
 import { Route as ApiStreamLiveRouteImport } from './routes/api/stream/live'
 import { Route as ApiStreamEpisodeRouteImport } from './routes/api/stream/episode'
-import { Route as ApiAiOrganizeMediaRouteImport } from './routes/api/ai/organize-media'
 
 const IndexRoute = IndexRouteImport.update({
   id: '/',
@@ -35,22 +34,15 @@ const ApiStreamEpisodeRoute = ApiStreamEpisodeRouteImport.update({
   path: '/api/stream/episode',
   getParentRoute: () => rootRouteImport,
 } as any)
-const ApiAiOrganizeMediaRoute = ApiAiOrganizeMediaRouteImport.update({
-  id: '/api/ai/organize-media',
-  path: '/api/ai/organize-media',
-  getParentRoute: () => rootRouteImport,
-} as any)
 
 export interface FileRoutesByFullPath {
   '/': typeof IndexRoute
-  '/api/ai/organize-media': typeof ApiAiOrganizeMediaRoute
   '/api/stream/episode': typeof ApiStreamEpisodeRoute
   '/api/stream/live': typeof ApiStreamLiveRoute
   '/api/stream/movie': typeof ApiStreamMovieRoute
 }
 export interface FileRoutesByTo {
   '/': typeof IndexRoute
-  '/api/ai/organize-media': typeof ApiAiOrganizeMediaRoute
   '/api/stream/episode': typeof ApiStreamEpisodeRoute
   '/api/stream/live': typeof ApiStreamLiveRoute
   '/api/stream/movie': typeof ApiStreamMovieRoute
@@ -58,7 +50,6 @@ export interface FileRoutesByTo {
 export interface FileRoutesById {
   __root__: typeof rootRouteImport
   '/': typeof IndexRoute
-  '/api/ai/organize-media': typeof ApiAiOrganizeMediaRoute
   '/api/stream/episode': typeof ApiStreamEpisodeRoute
   '/api/stream/live': typeof ApiStreamLiveRoute
   '/api/stream/movie': typeof ApiStreamMovieRoute
@@ -67,21 +58,14 @@ export interface FileRouteTypes {
   fileRoutesByFullPath: FileRoutesByFullPath
   fullPaths:
     | '/'
-    | '/api/ai/organize-media'
     | '/api/stream/episode'
     | '/api/stream/live'
     | '/api/stream/movie'
   fileRoutesByTo: FileRoutesByTo
-  to:
-    | '/'
-    | '/api/ai/organize-media'
-    | '/api/stream/episode'
-    | '/api/stream/live'
-    | '/api/stream/movie'
+  to: '/' | '/api/stream/episode' | '/api/stream/live' | '/api/stream/movie'
   id:
     | '__root__'
     | '/'
-    | '/api/ai/organize-media'
     | '/api/stream/episode'
     | '/api/stream/live'
     | '/api/stream/movie'
@@ -89,7 +73,6 @@ export interface FileRouteTypes {
 }
 export interface RootRouteChildren {
   IndexRoute: typeof IndexRoute
-  ApiAiOrganizeMediaRoute: typeof ApiAiOrganizeMediaRoute
   ApiStreamEpisodeRoute: typeof ApiStreamEpisodeRoute
   ApiStreamLiveRoute: typeof ApiStreamLiveRoute
   ApiStreamMovieRoute: typeof ApiStreamMovieRoute
@@ -125,19 +108,11 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof ApiStreamEpisodeRouteImport
       parentRoute: typeof rootRouteImport
     }
-    '/api/ai/organize-media': {
-      id: '/api/ai/organize-media'
-      path: '/api/ai/organize-media'
-      fullPath: '/api/ai/organize-media'
-      preLoaderRoute: typeof ApiAiOrganizeMediaRouteImport
-      parentRoute: typeof rootRouteImport
-    }
   }
 }
 
 const rootRouteChildren: RootRouteChildren = {
   IndexRoute: IndexRoute,
-  ApiAiOrganizeMediaRoute: ApiAiOrganizeMediaRoute,
   ApiStreamEpisodeRoute: ApiStreamEpisodeRoute,
   ApiStreamLiveRoute: ApiStreamLiveRoute,
   ApiStreamMovieRoute: ApiStreamMovieRoute,
