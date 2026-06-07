@@ -3,7 +3,7 @@
   channel = "stable-24.11"; # or "unstable"
   # Use https://search.nixos.org/packages to find packages
   packages = [
-    pkgs.nodejs_22
+    pkgs.bun
   ];
   # Sets environment variables in the workspace
   env = {};
@@ -20,7 +20,7 @@
       enable = true;
       previews = {
         web = {
-          command = ["npm" "run" "dev" "--" "--port" "$PORT"];
+          command = ["bun" "run" "dev" "--" "--port" "$PORT"];
           manager = "web";
         };
       };
@@ -29,7 +29,7 @@
     workspace = {
       # Runs when a workspace is first created
       onCreate = {
-        npm-install = "npm install";
+        bun-install = "bun install";
       };
     };
   };
