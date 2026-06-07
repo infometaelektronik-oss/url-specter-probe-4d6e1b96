@@ -6,7 +6,47 @@ const CORS = {
   "Access-Control-Allow-Methods": "POST, OPTIONS",
 };
 
-const SYSTEM_PROMPT = `Sen bir medya kategorizasyon motorusun. Gelen karmaşık m3u/medya havuzu verisini analiz et. Boş kategorileri, fragmanları ve kısa şovları tamamen temizle. İçerikleri 'canliYayinlar', 'filmler' ve 'diziBolumleri' olarak 3 ana kategoriye ayır. Filmleri { ad, yil, tur, url }; dizileri { diziAdi, sezon, bolum, bolumIsmi, url }; canlı yayınları { kanalAdi, kategori, url } şeklinde temizle. Sadece geçerli bir JSON döndür, başka hiçbir metin/markdown ekleme.`;
+// Using the more detailed SYSTEM prompt from organize.functions.ts
+const SYSTEM_PROMPT = `Sen bir Türk medya kategorizasyon motorusun. Sana ham link listesi verilir (sayfa başlığı + URL + opsiyonel akış). Görevlerin:
+1) Fragman / kısa video / "shorts" / "tanıtım" / 5 dakikadan kısa içerikleri ELE.
+2) Kalan içerikleri "dizi" | "film" | "canli" olarak sınıflandır.
+3) Dizi bölümleri için diziAdı + sezon + bölüm numarasını başlıktan/URL'den çıkar; bölüm ismini netleştir.
+4) Canlı kanal isimlerini (Kanal D, Star, ATV, Show, TRT 1, NOW, FOX vb.) normalize et.
+5) Filmler için yıl bilgisi mümkünse ekle.
+SADECE şu JSON ŞEMASIYLA tool döndür: items: [{type, title, season?, episode?, episodeName?, year?, url}]. Boş kalanlara null koy. URL alanı orijinal kaynak linkidir, asla uydurma.`;
+
+// Define the tool schema based on organize.functions.ts
+const tool = {
+  type: "function",
+  function: {
+    name: "emit_media",
+    description: "Temizlenmiş kategorize medya listesi.",
+    parameters: {
+      type: "object",
+      properties: {
+        items: {
+          type: "array",
+          items: {
+            type: "object",
+            properties: {
+              type: { type: "string", enum: ["dizi", "film", "canli"] },
+              title: { type: "string" },
+              season: { type: ["number", "null"] },
+              episode: { type: ["number", "null"] },
+              episodeName: { type: ["string", "null"] },
+              year: { type: ["number", "null"] },
+              url: { type: "string" },
+            },
+            required: ["type", "title", "url"],
+            additionalProperties: false,
+          },
+        },
+      },
+      required: ["items"],
+      additionalProperties: false,
+    },
+  },
+} as const;
 
 export const Route = createFileRoute("/api/ai/organize-media")({
   server: {
@@ -15,6 +55,7 @@ export const Route = createFileRoute("/api/ai/organize-media")({
       POST: async ({ request }) => {
         try {
           const body = await request.json().catch(() => ({}));
+          // Expecting rawM3uData in the request body
           const raw = (body as { rawM3uData?: unknown }).rawM3uData;
           if (raw === undefined || raw === null)
             return new Response(
@@ -29,9 +70,17 @@ export const Route = createFileRoute("/api/ai/organize-media")({
               { status: 500, headers: { ...CORS, "Content-Type": "application/json" } },
             );
 
+          // Prepare the user message for the AI
           const payloadStr =
             typeof raw === "string" ? raw : JSON.stringify(raw);
-          const truncated = payloadStr.slice(0, 60000);
+          const truncated = payloadStr.slice(0, 60000); // Limit payload size
+
+          const userMsg = JSON.stringify({
+             // Assuming rawM3uData could be an object with rootUrl and items
+            rootUrl: (body as any).rootUrl,
+            items: JSON.parse(truncated), // Assuming raw is JSON string
+            rootStreams: (body as any).rootStreams
+          });
 
           const aiRes = await fetch(
             "https://ai.gateway.lovable.dev/v1/chat/completions",
@@ -45,13 +94,15 @@ export const Route = createFileRoute("/api/ai/organize-media")({
                 model: "google/gemini-2.5-flash",
                 messages: [
                   { role: "system", content: SYSTEM_PROMPT },
-                  { role: "user", content: `Veri:\n${truncated}` },
+                  { role: "user", content: userMsg }, // Use the prepared user message
                 ],
-                response_format: { type: "json_object" },
+                tools: [tool],
+                tool_choice: { type: "function", function: { name: "emit_media" } }, // Specify tool choice
               }),
             },
           );
 
+          // Handle specific AI gateway errors
           if (aiRes.status === 429)
             return new Response(
               JSON.stringify({ error: "AI hız limiti aşıldı, biraz sonra tekrar dene." }),
@@ -72,19 +123,32 @@ export const Route = createFileRoute("/api/ai/organize-media")({
           }
 
           const ai = (await aiRes.json()) as {
-            choices?: { message?: { content?: string } }[];
+            choices?: { message?: { tool_calls?: { function?: { arguments?: string } }[]; content?: string } }[];
           };
-          const text = ai.choices?.[0]?.message?.content ?? "{}";
-          let parsed: unknown;
+
+          // Extract arguments from tool_calls or fallback to content
+          const args = ai.choices?.[0]?.message?.tool_calls?.[0]?.function?.arguments ?? ai.choices?.[0]?.message?.content ?? "{}";
+          
+          let parsed: { items?: unknown } = {};
           try {
-            parsed = JSON.parse(text);
-          } catch {
-            const m = text.match(/\{[\s\S]*\}/);
-            parsed = m ? JSON.parse(m[0]) : {};
+            parsed = JSON.parse(args);
+          } catch (e) {
+            console.error("JSON parsing error:", e);
+            console.error("Malformed JSON response:", args);
+            // Attempt to extract JSON if it's wrapped in other text
+            const m = args.match(/\{[\s\S]*\}/);
+            if (m) {
+              try {
+                parsed = JSON.parse(m[0]);
+              } catch {}
+            }
           }
 
+          // Ensure parsed.items is an array
+          const items = Array.isArray(parsed.items) ? parsed.items : [];
+
           return new Response(
-            JSON.stringify({ success: true, data: parsed }),
+            JSON.stringify({ success: true, data: items }), // Return data field with items array
             { status: 200, headers: { ...CORS, "Content-Type": "application/json" } },
           );
         } catch (e) {
