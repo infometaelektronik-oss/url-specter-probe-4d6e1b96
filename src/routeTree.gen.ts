@@ -9,10 +9,16 @@
 // Additionally, you should also exclude this file from your linter and/or formatter to prevent it from being checked or modified.
 
 import { Route as rootRouteImport } from './routes/__root'
+import { Route as IndexRouteImport } from './routes/index'
 import { Route as ApiStreamMovieRouteImport } from './routes/api/stream/movie'
 import { Route as ApiStreamLiveRouteImport } from './routes/api/stream/live'
 import { Route as ApiStreamEpisodeRouteImport } from './routes/api/stream/episode'
 
+const IndexRoute = IndexRouteImport.update({
+  id: '/',
+  path: '/',
+  getParentRoute: () => rootRouteImport,
+} as any)
 const ApiStreamMovieRoute = ApiStreamMovieRouteImport.update({
   id: '/api/stream/movie',
   path: '/api/stream/movie',
@@ -30,34 +36,43 @@ const ApiStreamEpisodeRoute = ApiStreamEpisodeRouteImport.update({
 } as any)
 
 export interface FileRoutesByFullPath {
+  '/': typeof IndexRoute
   '/api/stream/episode': typeof ApiStreamEpisodeRoute
   '/api/stream/live': typeof ApiStreamLiveRoute
   '/api/stream/movie': typeof ApiStreamMovieRoute
 }
 export interface FileRoutesByTo {
+  '/': typeof IndexRoute
   '/api/stream/episode': typeof ApiStreamEpisodeRoute
   '/api/stream/live': typeof ApiStreamLiveRoute
   '/api/stream/movie': typeof ApiStreamMovieRoute
 }
 export interface FileRoutesById {
   __root__: typeof rootRouteImport
+  '/': typeof IndexRoute
   '/api/stream/episode': typeof ApiStreamEpisodeRoute
   '/api/stream/live': typeof ApiStreamLiveRoute
   '/api/stream/movie': typeof ApiStreamMovieRoute
 }
 export interface FileRouteTypes {
   fileRoutesByFullPath: FileRoutesByFullPath
-  fullPaths: '/api/stream/episode' | '/api/stream/live' | '/api/stream/movie'
+  fullPaths:
+    | '/'
+    | '/api/stream/episode'
+    | '/api/stream/live'
+    | '/api/stream/movie'
   fileRoutesByTo: FileRoutesByTo
-  to: '/api/stream/episode' | '/api/stream/live' | '/api/stream/movie'
+  to: '/' | '/api/stream/episode' | '/api/stream/live' | '/api/stream/movie'
   id:
     | '__root__'
+    | '/'
     | '/api/stream/episode'
     | '/api/stream/live'
     | '/api/stream/movie'
   fileRoutesById: FileRoutesById
 }
 export interface RootRouteChildren {
+  IndexRoute: typeof IndexRoute
   ApiStreamEpisodeRoute: typeof ApiStreamEpisodeRoute
   ApiStreamLiveRoute: typeof ApiStreamLiveRoute
   ApiStreamMovieRoute: typeof ApiStreamMovieRoute
@@ -65,6 +80,13 @@ export interface RootRouteChildren {
 
 declare module '@tanstack/react-router' {
   interface FileRoutesByPath {
+    '/': {
+      id: '/'
+      path: '/'
+      fullPath: '/'
+      preLoaderRoute: typeof IndexRouteImport
+      parentRoute: typeof rootRouteImport
+    }
     '/api/stream/movie': {
       id: '/api/stream/movie'
       path: '/api/stream/movie'
@@ -90,6 +112,7 @@ declare module '@tanstack/react-router' {
 }
 
 const rootRouteChildren: RootRouteChildren = {
+  IndexRoute: IndexRoute,
   ApiStreamEpisodeRoute: ApiStreamEpisodeRoute,
   ApiStreamLiveRoute: ApiStreamLiveRoute,
   ApiStreamMovieRoute: ApiStreamMovieRoute,
@@ -97,13 +120,3 @@ const rootRouteChildren: RootRouteChildren = {
 export const routeTree = rootRouteImport
   ._addFileChildren(rootRouteChildren)
   ._addFileTypes<FileRouteTypes>()
-
-import type { getRouter } from './router.tsx'
-import type { startInstance } from './start.ts'
-declare module '@tanstack/react-start' {
-  interface Register {
-    ssr: true
-    router: Awaited<ReturnType<typeof getRouter>>
-    config: Awaited<ReturnType<typeof startInstance.getOptions>>
-  }
-}
