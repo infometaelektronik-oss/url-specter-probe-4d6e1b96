@@ -183,7 +183,7 @@ function IndexPage() {
   const runCrawl = useServerFn(crawlUrl);
   const runOrganize = useServerFn(organizeMedia);
 
-  const [url, setUrl] = useState(PRESETS[0].url);
+  const [url, setUrl] = useState<string>(PRESETS[0].url);
   const [logs, setLogs] = useState<string[]>([]);
   const [items, setItems] = useState<SeriesItem[]>([]);
   const [rootStreams, setRootStreams] = useState<string[]>([]);
