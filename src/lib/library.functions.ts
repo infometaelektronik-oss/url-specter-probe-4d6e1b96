@@ -1,79 +1,86 @@
-import { createServerFn } from "@tanstack/react-start";
-import { z } from "zod";
+import { serverFn } from "@tanstack/react-start/server";
 
-export type LibraryItem = {
+export interface LibraryItem {
   id: string;
-  source_url: string;
-  stream_url: string;
   title: string;
   kind: "dizi" | "film" | "canli";
-  season: number | null;
-  episode: number | null;
-  episode_name: string | null;
-  year: number | null;
-  thumbnail: string | null;
+  stream_url: string;
+  thumbnail?: string;
+  episode?: number;
+  episode_name?: string;
+  season?: number;
+  year?: number;
   is_alive: boolean;
-  last_checked_at: string;
-  created_at: string;
-};
+}
 
-export const listLibrary = createServerFn({ method: "GET" }).handler(async () => {
-  const { supabaseAdmin } = await import("@/integrations/supabase/client.server");
-  const { data, error } = await supabaseAdmin
-    .from("media_items")
-    .select("*")
-    .order("created_at", { ascending: false })
-    .limit(1000);
-  if (error) {
-    console.error("listLibrary error", error);
-    return { items: [] as LibraryItem[] };
+// In-memory storage for demo purposes
+let libraryStorage: LibraryItem[] = [
+  {
+    id: "1",
+    title: "Örnek Dizi",
+    kind: "dizi",
+    stream_url: "https://example.com/stream1.m3u8",
+    thumbnail: "https://via.placeholder.com/300x200?text=Dizi",
+    episode: 1,
+    episode_name: "Pilot",
+    season: 1,
+    is_alive: true,
+  },
+  {
+    id: "2",
+    title: "Örnek Film",
+    kind: "film",
+    stream_url: "https://example.com/stream2.mp4",
+    thumbnail: "https://via.placeholder.com/300x200?text=Film",
+    year: 2024,
+    is_alive: true,
+  },
+];
+
+export const listLibrary = serverFn(
+  async (): Promise<{ items: LibraryItem[] }> => {
+    return {
+      items: libraryStorage,
+    };
   }
-  return { items: (data || []) as LibraryItem[] };
-});
+);
 
-export const reverifyLibrary = createServerFn({ method: "POST" }).handler(async () => {
-  const { supabaseAdmin } = await import("@/integrations/supabase/client.server");
-  const { probeMany } = await import("./probe.server");
+export const reverifyLibrary = serverFn(
+  async (): Promise<{ checked: number; alive: number }> => {
+    let alive = 0;
+    
+    for (const item of libraryStorage) {
+      try {
+        const response = await fetch(item.stream_url, {
+          method: "HEAD",
+          headers: {
+            "User-Agent": "Mozilla/5.0",
+          },
+        });
+        
+        item.is_alive = response.ok;
+        if (response.ok) alive++;
+      } catch {
+        item.is_alive = false;
+      }
+    }
 
-  const { data: rows } = await supabaseAdmin
-    .from("media_items")
-    .select("id, stream_url")
-    .limit(500);
+    return {
+      checked: libraryStorage.length,
+      alive,
+    };
+  }
+);
 
-  if (!rows || rows.length === 0) return { ok: true, checked: 0, alive: 0 };
+export const deleteDeadItems = serverFn(
+  async (): Promise<{ ok: boolean; removed: number }> => {
+    const before = libraryStorage.length;
+    libraryStorage = libraryStorage.filter((item) => item.is_alive);
+    const removed = before - libraryStorage.length;
 
-  const urls = rows.map((r) => r.stream_url);
-  const map = await probeMany(urls, 8);
-  let alive = 0;
-
-  await Promise.all(
-    rows.map(async (r) => {
-      const isAlive = map.get(r.stream_url) ?? false;
-      if (isAlive) alive++;
-      await supabaseAdmin
-        .from("media_items")
-        .update({ is_alive: isAlive, last_checked_at: new Date().toISOString() })
-        .eq("id", r.id);
-    }),
-  );
-
-  return { ok: true, checked: rows.length, alive };
-});
-
-export const deleteDeadItems = createServerFn({ method: "POST" }).handler(async () => {
-  const { supabaseAdmin } = await import("@/integrations/supabase/client.server");
-  const { error, count } = await supabaseAdmin
-    .from("media_items")
-    .delete({ count: "exact" })
-    .eq("is_alive", false);
-  if (error) return { ok: false, error: error.message };
-  return { ok: true, removed: count ?? 0 };
-});
-
-export const clearLibrary = createServerFn({ method: "POST" })
-  .inputValidator(z.object({ confirm: z.literal(true) }))
-  .handler(async () => {
-    const { supabaseAdmin } = await import("@/integrations/supabase/client.server");
-    await supabaseAdmin.from("media_items").delete().not("id", "is", null);
-    return { ok: true };
-  });
+    return {
+      ok: true,
+      removed,
+    };
+  }
+);

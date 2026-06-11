@@ -1,46 +1,54 @@
 import { useEffect, useRef } from "react";
-import Hls from "hls.js";
+import HLS from "hls.js";
 
-export function HlsPlayer({ src, poster }: { src: string; poster?: string }) {
-  const ref = useRef<HTMLVideoElement>(null);
+interface HlsPlayerProps {
+  src: string;
+}
+
+export function HlsPlayer({ src }: HlsPlayerProps) {
+  const videoRef = useRef<HTMLVideoElement>(null);
 
   useEffect(() => {
-    const video = ref.current;
+    const video = videoRef.current;
     if (!video || !src) return;
 
-    // Route m3u8 / mp4 through our backend tunnels so CORS & referer pass
-    const proxied = /\.m3u8(\?|$)/i.test(src)
-      ? `/api/stream/live?url=${encodeURIComponent(src)}`
-      : /\.mp4(\?|$)/i.test(src)
-        ? `/api/stream/movie?url=${encodeURIComponent(src)}`
-        : src;
+    // Handle HLS streams
+    if (src.includes(".m3u8")) {
+      if (HLS.isSupported()) {
+        const hls = new HLS();
+        hls.loadSource(src);
+        hls.attachMedia(video);
+        hls.on(HLS.Events.MANIFEST_PARSED, () => {
+          video.play().catch(() => {
+            // Autoplay prevented
+          });
+        });
 
-    let hls: Hls | null = null;
-    if (/\.m3u8(\?|$)/i.test(src) && Hls.isSupported()) {
-      hls = new Hls({ enableWorker: true });
-      hls.loadSource(proxied);
-      hls.attachMedia(video);
-      hls.on(Hls.Events.ERROR, (_e, data) => {
-        if (data.fatal) console.warn("HLS fatal:", data.type, data.details);
-      });
+        return () => {
+          hls.destroy();
+        };
+      } else if (video.canPlayType("application/vnd.apple.mpegurl")) {
+        // Safari
+        video.src = src;
+      }
     } else {
-      video.src = proxied;
+      // Regular video file
+      video.src = src;
     }
 
     return () => {
-      hls?.destroy();
-      video.removeAttribute("src");
-      video.load();
+      video.src = "";
     };
   }, [src]);
 
   return (
-    <video
-      ref={ref}
-      controls
-      autoPlay
-      poster={poster}
-      className="w-full aspect-video bg-black rounded-lg border border-border"
-    />
+    <div className="w-full bg-black">
+      <video
+        ref={videoRef}
+        controls
+        className="aspect-video w-full"
+        controlsList="nodownload"
+      />
+    </div>
   );
 }
