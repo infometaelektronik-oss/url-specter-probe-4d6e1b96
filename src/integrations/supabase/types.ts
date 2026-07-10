@@ -89,6 +89,36 @@ export type Database = {
         }
         Relationships: []
       }
+      pool_sites: {
+        Row: {
+          active: boolean
+          created_at: string
+          id: string
+          kind: string
+          label: string
+          last_crawled_at: string | null
+          url: string
+        }
+        Insert: {
+          active?: boolean
+          created_at?: string
+          id?: string
+          kind?: string
+          label: string
+          last_crawled_at?: string | null
+          url: string
+        }
+        Update: {
+          active?: boolean
+          created_at?: string
+          id?: string
+          kind?: string
+          label?: string
+          last_crawled_at?: string | null
+          url?: string
+        }
+        Relationships: []
+      }
     }
     Views: {
       [_ in never]: never

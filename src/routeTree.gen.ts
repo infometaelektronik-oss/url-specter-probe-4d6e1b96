@@ -9,11 +9,18 @@
 // Additionally, you should also exclude this file from your linter and/or formatter to prevent it from being checked or modified.
 
 import { Route as rootRouteImport } from './routes/__root'
+import { Route as HavuzRouteImport } from './routes/havuz'
 import { Route as IndexRouteImport } from './routes/index'
 import { Route as ApiStreamMovieRouteImport } from './routes/api/stream/movie'
 import { Route as ApiStreamLiveRouteImport } from './routes/api/stream/live'
 import { Route as ApiStreamEpisodeRouteImport } from './routes/api/stream/episode'
+import { Route as ApiPublicHooksAutoCrawlRouteImport } from './routes/api/public/hooks/auto-crawl'
 
+const HavuzRoute = HavuzRouteImport.update({
+  id: '/havuz',
+  path: '/havuz',
+  getParentRoute: () => rootRouteImport,
+} as any)
 const IndexRoute = IndexRouteImport.update({
   id: '/',
   path: '/',
@@ -34,52 +41,82 @@ const ApiStreamEpisodeRoute = ApiStreamEpisodeRouteImport.update({
   path: '/api/stream/episode',
   getParentRoute: () => rootRouteImport,
 } as any)
+const ApiPublicHooksAutoCrawlRoute = ApiPublicHooksAutoCrawlRouteImport.update({
+  id: '/api/public/hooks/auto-crawl',
+  path: '/api/public/hooks/auto-crawl',
+  getParentRoute: () => rootRouteImport,
+} as any)
 
 export interface FileRoutesByFullPath {
   '/': typeof IndexRoute
+  '/havuz': typeof HavuzRoute
   '/api/stream/episode': typeof ApiStreamEpisodeRoute
   '/api/stream/live': typeof ApiStreamLiveRoute
   '/api/stream/movie': typeof ApiStreamMovieRoute
+  '/api/public/hooks/auto-crawl': typeof ApiPublicHooksAutoCrawlRoute
 }
 export interface FileRoutesByTo {
   '/': typeof IndexRoute
+  '/havuz': typeof HavuzRoute
   '/api/stream/episode': typeof ApiStreamEpisodeRoute
   '/api/stream/live': typeof ApiStreamLiveRoute
   '/api/stream/movie': typeof ApiStreamMovieRoute
+  '/api/public/hooks/auto-crawl': typeof ApiPublicHooksAutoCrawlRoute
 }
 export interface FileRoutesById {
   __root__: typeof rootRouteImport
   '/': typeof IndexRoute
+  '/havuz': typeof HavuzRoute
   '/api/stream/episode': typeof ApiStreamEpisodeRoute
   '/api/stream/live': typeof ApiStreamLiveRoute
   '/api/stream/movie': typeof ApiStreamMovieRoute
+  '/api/public/hooks/auto-crawl': typeof ApiPublicHooksAutoCrawlRoute
 }
 export interface FileRouteTypes {
   fileRoutesByFullPath: FileRoutesByFullPath
   fullPaths:
     | '/'
+    | '/havuz'
     | '/api/stream/episode'
     | '/api/stream/live'
     | '/api/stream/movie'
+    | '/api/public/hooks/auto-crawl'
   fileRoutesByTo: FileRoutesByTo
-  to: '/' | '/api/stream/episode' | '/api/stream/live' | '/api/stream/movie'
+  to:
+    | '/'
+    | '/havuz'
+    | '/api/stream/episode'
+    | '/api/stream/live'
+    | '/api/stream/movie'
+    | '/api/public/hooks/auto-crawl'
   id:
     | '__root__'
     | '/'
+    | '/havuz'
     | '/api/stream/episode'
     | '/api/stream/live'
     | '/api/stream/movie'
+    | '/api/public/hooks/auto-crawl'
   fileRoutesById: FileRoutesById
 }
 export interface RootRouteChildren {
   IndexRoute: typeof IndexRoute
+  HavuzRoute: typeof HavuzRoute
   ApiStreamEpisodeRoute: typeof ApiStreamEpisodeRoute
   ApiStreamLiveRoute: typeof ApiStreamLiveRoute
   ApiStreamMovieRoute: typeof ApiStreamMovieRoute
+  ApiPublicHooksAutoCrawlRoute: typeof ApiPublicHooksAutoCrawlRoute
 }
 
 declare module '@tanstack/react-router' {
   interface FileRoutesByPath {
+    '/havuz': {
+      id: '/havuz'
+      path: '/havuz'
+      fullPath: '/havuz'
+      preLoaderRoute: typeof HavuzRouteImport
+      parentRoute: typeof rootRouteImport
+    }
     '/': {
       id: '/'
       path: '/'
@@ -108,15 +145,34 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof ApiStreamEpisodeRouteImport
       parentRoute: typeof rootRouteImport
     }
+    '/api/public/hooks/auto-crawl': {
+      id: '/api/public/hooks/auto-crawl'
+      path: '/api/public/hooks/auto-crawl'
+      fullPath: '/api/public/hooks/auto-crawl'
+      preLoaderRoute: typeof ApiPublicHooksAutoCrawlRouteImport
+      parentRoute: typeof rootRouteImport
+    }
   }
 }
 
 const rootRouteChildren: RootRouteChildren = {
   IndexRoute: IndexRoute,
+  HavuzRoute: HavuzRoute,
   ApiStreamEpisodeRoute: ApiStreamEpisodeRoute,
   ApiStreamLiveRoute: ApiStreamLiveRoute,
   ApiStreamMovieRoute: ApiStreamMovieRoute,
+  ApiPublicHooksAutoCrawlRoute: ApiPublicHooksAutoCrawlRoute,
 }
 export const routeTree = rootRouteImport
   ._addFileChildren(rootRouteChildren)
   ._addFileTypes<FileRouteTypes>()
+
+import type { getRouter } from './router.tsx'
+import type { startInstance } from './start.ts'
+declare module '@tanstack/react-start' {
+  interface Register {
+    ssr: true
+    router: Awaited<ReturnType<typeof getRouter>>
+    config: Awaited<ReturnType<typeof startInstance.getOptions>>
+  }
+}
