@@ -13,6 +13,7 @@ import { Route as IndexRouteImport } from './routes/index'
 import { Route as ApiStreamMovieRouteImport } from './routes/api/stream/movie'
 import { Route as ApiStreamLiveRouteImport } from './routes/api/stream/live'
 import { Route as ApiStreamEpisodeRouteImport } from './routes/api/stream/episode'
+import { Route as ApiPublicHooksAutoCrawlRouteImport } from './routes/api/public/hooks/auto-crawl'
 
 const IndexRoute = IndexRouteImport.update({
   id: '/',
@@ -34,18 +35,25 @@ const ApiStreamEpisodeRoute = ApiStreamEpisodeRouteImport.update({
   path: '/api/stream/episode',
   getParentRoute: () => rootRouteImport,
 } as any)
+const ApiPublicHooksAutoCrawlRoute = ApiPublicHooksAutoCrawlRouteImport.update({
+  id: '/api/public/hooks/auto-crawl',
+  path: '/api/public/hooks/auto-crawl',
+  getParentRoute: () => rootRouteImport,
+} as any)
 
 export interface FileRoutesByFullPath {
   '/': typeof IndexRoute
   '/api/stream/episode': typeof ApiStreamEpisodeRoute
   '/api/stream/live': typeof ApiStreamLiveRoute
   '/api/stream/movie': typeof ApiStreamMovieRoute
+  '/api/public/hooks/auto-crawl': typeof ApiPublicHooksAutoCrawlRoute
 }
 export interface FileRoutesByTo {
   '/': typeof IndexRoute
   '/api/stream/episode': typeof ApiStreamEpisodeRoute
   '/api/stream/live': typeof ApiStreamLiveRoute
   '/api/stream/movie': typeof ApiStreamMovieRoute
+  '/api/public/hooks/auto-crawl': typeof ApiPublicHooksAutoCrawlRoute
 }
 export interface FileRoutesById {
   __root__: typeof rootRouteImport
@@ -53,6 +61,7 @@ export interface FileRoutesById {
   '/api/stream/episode': typeof ApiStreamEpisodeRoute
   '/api/stream/live': typeof ApiStreamLiveRoute
   '/api/stream/movie': typeof ApiStreamMovieRoute
+  '/api/public/hooks/auto-crawl': typeof ApiPublicHooksAutoCrawlRoute
 }
 export interface FileRouteTypes {
   fileRoutesByFullPath: FileRoutesByFullPath
@@ -61,14 +70,21 @@ export interface FileRouteTypes {
     | '/api/stream/episode'
     | '/api/stream/live'
     | '/api/stream/movie'
+    | '/api/public/hooks/auto-crawl'
   fileRoutesByTo: FileRoutesByTo
-  to: '/' | '/api/stream/episode' | '/api/stream/live' | '/api/stream/movie'
+  to:
+    | '/'
+    | '/api/stream/episode'
+    | '/api/stream/live'
+    | '/api/stream/movie'
+    | '/api/public/hooks/auto-crawl'
   id:
     | '__root__'
     | '/'
     | '/api/stream/episode'
     | '/api/stream/live'
     | '/api/stream/movie'
+    | '/api/public/hooks/auto-crawl'
   fileRoutesById: FileRoutesById
 }
 export interface RootRouteChildren {
@@ -76,6 +92,7 @@ export interface RootRouteChildren {
   ApiStreamEpisodeRoute: typeof ApiStreamEpisodeRoute
   ApiStreamLiveRoute: typeof ApiStreamLiveRoute
   ApiStreamMovieRoute: typeof ApiStreamMovieRoute
+  ApiPublicHooksAutoCrawlRoute: typeof ApiPublicHooksAutoCrawlRoute
 }
 
 declare module '@tanstack/react-router' {
@@ -108,6 +125,13 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof ApiStreamEpisodeRouteImport
       parentRoute: typeof rootRouteImport
     }
+    '/api/public/hooks/auto-crawl': {
+      id: '/api/public/hooks/auto-crawl'
+      path: '/api/public/hooks/auto-crawl'
+      fullPath: '/api/public/hooks/auto-crawl'
+      preLoaderRoute: typeof ApiPublicHooksAutoCrawlRouteImport
+      parentRoute: typeof rootRouteImport
+    }
   }
 }
 
@@ -116,6 +140,7 @@ const rootRouteChildren: RootRouteChildren = {
   ApiStreamEpisodeRoute: ApiStreamEpisodeRoute,
   ApiStreamLiveRoute: ApiStreamLiveRoute,
   ApiStreamMovieRoute: ApiStreamMovieRoute,
+  ApiPublicHooksAutoCrawlRoute: ApiPublicHooksAutoCrawlRoute,
 }
 export const routeTree = rootRouteImport
   ._addFileChildren(rootRouteChildren)
