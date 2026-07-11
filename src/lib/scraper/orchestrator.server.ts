@@ -16,7 +16,7 @@ import {
 import { safeFetch } from "./user-agents";
 import { validateStream } from "./validate.server";
 
-type LogRow = { level: "info" | "ok" | "warn" | "error"; phase: string; message: string; meta?: Record<string, unknown> };
+type LogRow = { level: "info" | "ok" | "warn" | "error"; phase: string; message: string; meta?: Record<string, string | number | boolean | null> };
 
 async function log(rows: LogRow[]) {
   if (!rows.length) return;
