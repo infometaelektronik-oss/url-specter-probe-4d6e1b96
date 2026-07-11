@@ -202,7 +202,7 @@ export async function runDiscovery(opts: { manual?: boolean } = {}): Promise<Dis
             .select("id")
             .single();
           summary.inserted += 1;
-          push({ level: "ok", phase: "extract", message: `+ ${finalTitle} [${resolution}]`, meta: { id: ins?.id } });
+          push({ level: "ok", phase: "extract", message: `+ ${finalTitle} [${resolution}]`, meta: { id: ins?.id ?? null } });
         }
 
         // Choicely push
