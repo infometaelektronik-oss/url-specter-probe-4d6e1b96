@@ -14,6 +14,75 @@ export type Database = {
   }
   public: {
     Tables: {
+      autonomous_streams: {
+        Row: {
+          category: string | null
+          choicely_id: string | null
+          created_at: string
+          custom_headers: Json | null
+          failover_group: string | null
+          failure_count: number
+          id: string
+          is_active: boolean
+          last_checked_at: string | null
+          last_pushed_at: string | null
+          normalized_title: string | null
+          poster_image_url: string | null
+          resolution: string | null
+          source: string | null
+          source_website: string | null
+          status: string
+          stream_url: string
+          title: string
+          type: string
+          updated_at: string
+        }
+        Insert: {
+          category?: string | null
+          choicely_id?: string | null
+          created_at?: string
+          custom_headers?: Json | null
+          failover_group?: string | null
+          failure_count?: number
+          id?: string
+          is_active?: boolean
+          last_checked_at?: string | null
+          last_pushed_at?: string | null
+          normalized_title?: string | null
+          poster_image_url?: string | null
+          resolution?: string | null
+          source?: string | null
+          source_website?: string | null
+          status?: string
+          stream_url: string
+          title: string
+          type?: string
+          updated_at?: string
+        }
+        Update: {
+          category?: string | null
+          choicely_id?: string | null
+          created_at?: string
+          custom_headers?: Json | null
+          failover_group?: string | null
+          failure_count?: number
+          id?: string
+          is_active?: boolean
+          last_checked_at?: string | null
+          last_pushed_at?: string | null
+          normalized_title?: string | null
+          poster_image_url?: string | null
+          resolution?: string | null
+          source?: string | null
+          source_website?: string | null
+          status?: string
+          stream_url?: string
+          title?: string
+          type?: string
+          updated_at?: string
+        }
+        Relationships: []
+      }
       crawl_runs: {
         Row: {
           created_at: string
@@ -38,6 +107,36 @@ export type Database = {
           log?: Json
           root_url?: string
           status?: string
+        }
+        Relationships: []
+      }
+      discovery_queries: {
+        Row: {
+          active: boolean
+          created_at: string
+          engine: string
+          hit_count: number
+          id: string
+          last_run_at: string | null
+          query: string
+        }
+        Insert: {
+          active?: boolean
+          created_at?: string
+          engine?: string
+          hit_count?: number
+          id?: string
+          last_run_at?: string | null
+          query: string
+        }
+        Update: {
+          active?: boolean
+          created_at?: string
+          engine?: string
+          hit_count?: number
+          id?: string
+          last_run_at?: string | null
+          query?: string
         }
         Relationships: []
       }
@@ -116,6 +215,33 @@ export type Database = {
           label?: string
           last_crawled_at?: string | null
           url?: string
+        }
+        Relationships: []
+      }
+      scraper_logs: {
+        Row: {
+          created_at: string
+          id: number
+          level: string
+          message: string
+          meta: Json | null
+          phase: string
+        }
+        Insert: {
+          created_at?: string
+          id?: number
+          level?: string
+          message: string
+          meta?: Json | null
+          phase: string
+        }
+        Update: {
+          created_at?: string
+          id?: number
+          level?: string
+          message?: string
+          meta?: Json | null
+          phase?: string
         }
         Relationships: []
       }
