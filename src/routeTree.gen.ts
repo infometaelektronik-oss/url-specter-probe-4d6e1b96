@@ -9,19 +9,19 @@
 // Additionally, you should also exclude this file from your linter and/or formatter to prevent it from being checked or modified.
 
 import { Route as rootRouteImport } from './routes/__root'
-import { Route as OtonomRouteImport } from './routes/otonom'
-import { Route as HavuzRouteImport } from './routes/havuz'
 import { Route as IndexRouteImport } from './routes/index'
-import { Route as ApiStreamMovieRouteImport } from './routes/api/stream/movie'
-import { Route as ApiStreamLiveRouteImport } from './routes/api/stream/live'
+import { Route as HavuzRouteImport } from './routes/havuz'
+import { Route as OtonomRouteImport } from './routes/otonom'
 import { Route as ApiStreamEpisodeRouteImport } from './routes/api/stream/episode'
-import { Route as ApiPublicHooksAutonomousHealthRouteImport } from './routes/api/public/hooks/autonomous-health'
-import { Route as ApiPublicHooksAutonomousDiscoverRouteImport } from './routes/api/public/hooks/autonomous-discover'
+import { Route as ApiStreamLiveRouteImport } from './routes/api/stream/live'
+import { Route as ApiStreamMovieRouteImport } from './routes/api/stream/movie'
 import { Route as ApiPublicHooksAutoCrawlRouteImport } from './routes/api/public/hooks/auto-crawl'
+import { Route as ApiPublicHooksAutonomousDiscoverRouteImport } from './routes/api/public/hooks/autonomous-discover'
+import { Route as ApiPublicHooksAutonomousHealthRouteImport } from './routes/api/public/hooks/autonomous-health'
 
-const OtonomRoute = OtonomRouteImport.update({
-  id: '/otonom',
-  path: '/otonom',
+const IndexRoute = IndexRouteImport.update({
+  id: '/',
+  path: '/',
   getParentRoute: () => rootRouteImport,
 } as any)
 const HavuzRoute = HavuzRouteImport.update({
@@ -29,19 +29,9 @@ const HavuzRoute = HavuzRouteImport.update({
   path: '/havuz',
   getParentRoute: () => rootRouteImport,
 } as any)
-const IndexRoute = IndexRouteImport.update({
-  id: '/',
-  path: '/',
-  getParentRoute: () => rootRouteImport,
-} as any)
-const ApiStreamMovieRoute = ApiStreamMovieRouteImport.update({
-  id: '/api/stream/movie',
-  path: '/api/stream/movie',
-  getParentRoute: () => rootRouteImport,
-} as any)
-const ApiStreamLiveRoute = ApiStreamLiveRouteImport.update({
-  id: '/api/stream/live',
-  path: '/api/stream/live',
+const OtonomRoute = OtonomRouteImport.update({
+  id: '/otonom',
+  path: '/otonom',
   getParentRoute: () => rootRouteImport,
 } as any)
 const ApiStreamEpisodeRoute = ApiStreamEpisodeRouteImport.update({
@@ -49,23 +39,33 @@ const ApiStreamEpisodeRoute = ApiStreamEpisodeRouteImport.update({
   path: '/api/stream/episode',
   getParentRoute: () => rootRouteImport,
 } as any)
-const ApiPublicHooksAutonomousHealthRoute =
-  ApiPublicHooksAutonomousHealthRouteImport.update({
-    id: '/api/public/hooks/autonomous-health',
-    path: '/api/public/hooks/autonomous-health',
-    getParentRoute: () => rootRouteImport,
-  } as any)
+const ApiStreamLiveRoute = ApiStreamLiveRouteImport.update({
+  id: '/api/stream/live',
+  path: '/api/stream/live',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const ApiStreamMovieRoute = ApiStreamMovieRouteImport.update({
+  id: '/api/stream/movie',
+  path: '/api/stream/movie',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const ApiPublicHooksAutoCrawlRoute = ApiPublicHooksAutoCrawlRouteImport.update({
+  id: '/api/public/hooks/auto-crawl',
+  path: '/api/public/hooks/auto-crawl',
+  getParentRoute: () => rootRouteImport,
+} as any)
 const ApiPublicHooksAutonomousDiscoverRoute =
   ApiPublicHooksAutonomousDiscoverRouteImport.update({
     id: '/api/public/hooks/autonomous-discover',
     path: '/api/public/hooks/autonomous-discover',
     getParentRoute: () => rootRouteImport,
   } as any)
-const ApiPublicHooksAutoCrawlRoute = ApiPublicHooksAutoCrawlRouteImport.update({
-  id: '/api/public/hooks/auto-crawl',
-  path: '/api/public/hooks/auto-crawl',
-  getParentRoute: () => rootRouteImport,
-} as any)
+const ApiPublicHooksAutonomousHealthRoute =
+  ApiPublicHooksAutonomousHealthRouteImport.update({
+    id: '/api/public/hooks/autonomous-health',
+    path: '/api/public/hooks/autonomous-health',
+    getParentRoute: () => rootRouteImport,
+  } as any)
 
 export interface FileRoutesByFullPath {
   '/': typeof IndexRoute
@@ -151,11 +151,11 @@ export interface RootRouteChildren {
 
 declare module '@tanstack/react-router' {
   interface FileRoutesByPath {
-    '/otonom': {
-      id: '/otonom'
-      path: '/otonom'
-      fullPath: '/otonom'
-      preLoaderRoute: typeof OtonomRouteImport
+    '/': {
+      id: '/'
+      path: '/'
+      fullPath: '/'
+      preLoaderRoute: typeof IndexRouteImport
       parentRoute: typeof rootRouteImport
     }
     '/havuz': {
@@ -165,25 +165,11 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof HavuzRouteImport
       parentRoute: typeof rootRouteImport
     }
-    '/': {
-      id: '/'
-      path: '/'
-      fullPath: '/'
-      preLoaderRoute: typeof IndexRouteImport
-      parentRoute: typeof rootRouteImport
-    }
-    '/api/stream/movie': {
-      id: '/api/stream/movie'
-      path: '/api/stream/movie'
-      fullPath: '/api/stream/movie'
-      preLoaderRoute: typeof ApiStreamMovieRouteImport
-      parentRoute: typeof rootRouteImport
-    }
-    '/api/stream/live': {
-      id: '/api/stream/live'
-      path: '/api/stream/live'
-      fullPath: '/api/stream/live'
-      preLoaderRoute: typeof ApiStreamLiveRouteImport
+    '/otonom': {
+      id: '/otonom'
+      path: '/otonom'
+      fullPath: '/otonom'
+      preLoaderRoute: typeof OtonomRouteImport
       parentRoute: typeof rootRouteImport
     }
     '/api/stream/episode': {
@@ -193,11 +179,25 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof ApiStreamEpisodeRouteImport
       parentRoute: typeof rootRouteImport
     }
-    '/api/public/hooks/autonomous-health': {
-      id: '/api/public/hooks/autonomous-health'
-      path: '/api/public/hooks/autonomous-health'
-      fullPath: '/api/public/hooks/autonomous-health'
-      preLoaderRoute: typeof ApiPublicHooksAutonomousHealthRouteImport
+    '/api/stream/live': {
+      id: '/api/stream/live'
+      path: '/api/stream/live'
+      fullPath: '/api/stream/live'
+      preLoaderRoute: typeof ApiStreamLiveRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/api/stream/movie': {
+      id: '/api/stream/movie'
+      path: '/api/stream/movie'
+      fullPath: '/api/stream/movie'
+      preLoaderRoute: typeof ApiStreamMovieRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/api/public/hooks/auto-crawl': {
+      id: '/api/public/hooks/auto-crawl'
+      path: '/api/public/hooks/auto-crawl'
+      fullPath: '/api/public/hooks/auto-crawl'
+      preLoaderRoute: typeof ApiPublicHooksAutoCrawlRouteImport
       parentRoute: typeof rootRouteImport
     }
     '/api/public/hooks/autonomous-discover': {
@@ -207,11 +207,11 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof ApiPublicHooksAutonomousDiscoverRouteImport
       parentRoute: typeof rootRouteImport
     }
-    '/api/public/hooks/auto-crawl': {
-      id: '/api/public/hooks/auto-crawl'
-      path: '/api/public/hooks/auto-crawl'
-      fullPath: '/api/public/hooks/auto-crawl'
-      preLoaderRoute: typeof ApiPublicHooksAutoCrawlRouteImport
+    '/api/public/hooks/autonomous-health': {
+      id: '/api/public/hooks/autonomous-health'
+      path: '/api/public/hooks/autonomous-health'
+      fullPath: '/api/public/hooks/autonomous-health'
+      preLoaderRoute: typeof ApiPublicHooksAutonomousHealthRouteImport
       parentRoute: typeof rootRouteImport
     }
   }
