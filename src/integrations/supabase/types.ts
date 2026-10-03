@@ -14,21 +14,91 @@ export type Database = {
   }
   public: {
     Tables: {
+      api_clients: {
+        Row: {
+          active: boolean
+          created_at: string
+          id: string
+          ip_whitelist: string[]
+          key_hash: string
+          key_prefix: string
+          last_used_at: string | null
+          name: string
+          rate_limit_per_min: number
+          request_count: number
+        }
+        Insert: {
+          active?: boolean
+          created_at?: string
+          id?: string
+          ip_whitelist?: string[]
+          key_hash: string
+          key_prefix: string
+          last_used_at?: string | null
+          name: string
+          rate_limit_per_min?: number
+          request_count?: number
+        }
+        Update: {
+          active?: boolean
+          created_at?: string
+          id?: string
+          ip_whitelist?: string[]
+          key_hash?: string
+          key_prefix?: string
+          last_used_at?: string | null
+          name?: string
+          rate_limit_per_min?: number
+          request_count?: number
+        }
+        Relationships: []
+      }
+      api_rate_buckets: {
+        Row: {
+          client_id: string
+          hits: number
+          window_start: string
+        }
+        Insert: {
+          client_id: string
+          hits?: number
+          window_start: string
+        }
+        Update: {
+          client_id?: string
+          hits?: number
+          window_start?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "api_rate_buckets_client_id_fkey"
+            columns: ["client_id"]
+            isOneToOne: false
+            referencedRelation: "api_clients"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       autonomous_streams: {
         Row: {
+          bitrate_kbps: number | null
           category: string | null
           choicely_id: string | null
           created_at: string
           custom_headers: Json | null
           failover_group: string | null
           failure_count: number
+          geo_country: string | null
           id: string
           is_active: boolean
           last_checked_at: string | null
           last_pushed_at: string | null
           normalized_title: string | null
           poster_image_url: string | null
+          priority: number
+          quality_tier: string | null
           resolution: string | null
+          response_ms: number | null
           source: string | null
           source_website: string | null
           status: string
@@ -36,21 +106,27 @@ export type Database = {
           title: string
           type: string
           updated_at: string
+          variants: Json
         }
         Insert: {
+          bitrate_kbps?: number | null
           category?: string | null
           choicely_id?: string | null
           created_at?: string
           custom_headers?: Json | null
           failover_group?: string | null
           failure_count?: number
+          geo_country?: string | null
           id?: string
           is_active?: boolean
           last_checked_at?: string | null
           last_pushed_at?: string | null
           normalized_title?: string | null
           poster_image_url?: string | null
+          priority?: number
+          quality_tier?: string | null
           resolution?: string | null
+          response_ms?: number | null
           source?: string | null
           source_website?: string | null
           status?: string
@@ -58,21 +134,27 @@ export type Database = {
           title: string
           type?: string
           updated_at?: string
+          variants?: Json
         }
         Update: {
+          bitrate_kbps?: number | null
           category?: string | null
           choicely_id?: string | null
           created_at?: string
           custom_headers?: Json | null
           failover_group?: string | null
           failure_count?: number
+          geo_country?: string | null
           id?: string
           is_active?: boolean
           last_checked_at?: string | null
           last_pushed_at?: string | null
           normalized_title?: string | null
           poster_image_url?: string | null
+          priority?: number
+          quality_tier?: string | null
           resolution?: string | null
+          response_ms?: number | null
           source?: string | null
           source_website?: string | null
           status?: string
@@ -80,6 +162,46 @@ export type Database = {
           title?: string
           type?: string
           updated_at?: string
+          variants?: Json
+        }
+        Relationships: []
+      }
+      crawl_jobs: {
+        Row: {
+          attempts: number
+          created_at: string
+          depth: number
+          error: string | null
+          finished_at: string | null
+          id: string
+          locked_at: string | null
+          referer: string | null
+          status: string
+          url: string
+        }
+        Insert: {
+          attempts?: number
+          created_at?: string
+          depth?: number
+          error?: string | null
+          finished_at?: string | null
+          id?: string
+          locked_at?: string | null
+          referer?: string | null
+          status?: string
+          url: string
+        }
+        Update: {
+          attempts?: number
+          created_at?: string
+          depth?: number
+          error?: string | null
+          finished_at?: string | null
+          id?: string
+          locked_at?: string | null
+          referer?: string | null
+          status?: string
+          url?: string
         }
         Relationships: []
       }
@@ -137,6 +259,138 @@ export type Database = {
           id?: string
           last_run_at?: string | null
           query?: string
+        }
+        Relationships: []
+      }
+      engine_metrics: {
+        Row: {
+          avg_ms: number
+          banned: number
+          failed: number
+          found: number
+          id: string
+          kind: string
+          requests: number
+          success: number
+          ts: string
+        }
+        Insert: {
+          avg_ms?: number
+          banned?: number
+          failed?: number
+          found?: number
+          id?: string
+          kind: string
+          requests?: number
+          success?: number
+          ts?: string
+        }
+        Update: {
+          avg_ms?: number
+          banned?: number
+          failed?: number
+          found?: number
+          id?: string
+          kind?: string
+          requests?: number
+          success?: number
+          ts?: string
+        }
+        Relationships: []
+      }
+      engine_settings: {
+        Row: {
+          key: string
+          updated_at: string
+          value: Json
+        }
+        Insert: {
+          key: string
+          updated_at?: string
+          value?: Json
+        }
+        Update: {
+          key?: string
+          updated_at?: string
+          value?: Json
+        }
+        Relationships: []
+      }
+      epg_programs: {
+        Row: {
+          channel_key: string
+          channel_name: string | null
+          description: string | null
+          id: string
+          start_at: string
+          stop_at: string
+          title: string
+        }
+        Insert: {
+          channel_key: string
+          channel_name?: string | null
+          description?: string | null
+          id?: string
+          start_at: string
+          stop_at: string
+          title: string
+        }
+        Update: {
+          channel_key?: string
+          channel_name?: string | null
+          description?: string | null
+          id?: string
+          start_at?: string
+          stop_at?: string
+          title?: string
+        }
+        Relationships: []
+      }
+      epg_sources: {
+        Row: {
+          active: boolean
+          created_at: string
+          id: string
+          last_synced_at: string | null
+          program_count: number
+          url: string
+        }
+        Insert: {
+          active?: boolean
+          created_at?: string
+          id?: string
+          last_synced_at?: string | null
+          program_count?: number
+          url: string
+        }
+        Update: {
+          active?: boolean
+          created_at?: string
+          id?: string
+          last_synced_at?: string | null
+          program_count?: number
+          url?: string
+        }
+        Relationships: []
+      }
+      feed_cache: {
+        Row: {
+          body: string
+          content_type: string
+          expires_at: string
+          key: string
+        }
+        Insert: {
+          body: string
+          content_type: string
+          expires_at: string
+          key: string
+        }
+        Update: {
+          body?: string
+          content_type?: string
+          expires_at?: string
+          key?: string
         }
         Relationships: []
       }
@@ -218,6 +472,48 @@ export type Database = {
         }
         Relationships: []
       }
+      proxies: {
+        Row: {
+          active: boolean
+          ban_count: number
+          country: string | null
+          created_at: string
+          fail_count: number
+          id: string
+          kind: string
+          label: string
+          last_used_at: string | null
+          success_count: number
+          template: string
+        }
+        Insert: {
+          active?: boolean
+          ban_count?: number
+          country?: string | null
+          created_at?: string
+          fail_count?: number
+          id?: string
+          kind?: string
+          label: string
+          last_used_at?: string | null
+          success_count?: number
+          template: string
+        }
+        Update: {
+          active?: boolean
+          ban_count?: number
+          country?: string | null
+          created_at?: string
+          fail_count?: number
+          id?: string
+          kind?: string
+          label?: string
+          last_used_at?: string | null
+          success_count?: number
+          template?: string
+        }
+        Relationships: []
+      }
       scraper_logs: {
         Row: {
           created_at: string
@@ -245,15 +541,98 @@ export type Database = {
         }
         Relationships: []
       }
+      user_roles: {
+        Row: {
+          id: string
+          role: Database["public"]["Enums"]["app_role"]
+          user_id: string
+        }
+        Insert: {
+          id?: string
+          role: Database["public"]["Enums"]["app_role"]
+          user_id: string
+        }
+        Update: {
+          id?: string
+          role?: Database["public"]["Enums"]["app_role"]
+          user_id?: string
+        }
+        Relationships: []
+      }
+      webhooks: {
+        Row: {
+          active: boolean
+          created_at: string
+          events: string[]
+          id: string
+          kind: string
+          last_status: number | null
+          name: string
+          telegram_chat_id: string | null
+          url: string
+        }
+        Insert: {
+          active?: boolean
+          created_at?: string
+          events?: string[]
+          id?: string
+          kind?: string
+          last_status?: number | null
+          name: string
+          telegram_chat_id?: string | null
+          url: string
+        }
+        Update: {
+          active?: boolean
+          created_at?: string
+          events?: string[]
+          id?: string
+          kind?: string
+          last_status?: number | null
+          name?: string
+          telegram_chat_id?: string | null
+          url?: string
+        }
+        Relationships: []
+      }
     }
     Views: {
       [_ in never]: never
     }
     Functions: {
-      [_ in never]: never
+      api_hit: { Args: { _client: string; _limit: number }; Returns: boolean }
+      claim_first_admin: { Args: never; Returns: boolean }
+      claim_jobs: {
+        Args: { _n: number }
+        Returns: {
+          attempts: number
+          created_at: string
+          depth: number
+          error: string | null
+          finished_at: string | null
+          id: string
+          locked_at: string | null
+          referer: string | null
+          status: string
+          url: string
+        }[]
+        SetofOptions: {
+          from: "*"
+          to: "crawl_jobs"
+          isOneToOne: false
+          isSetofReturn: true
+        }
+      }
+      has_role: {
+        Args: {
+          _role: Database["public"]["Enums"]["app_role"]
+          _user_id: string
+        }
+        Returns: boolean
+      }
     }
     Enums: {
-      [_ in never]: never
+      app_role: "admin" | "user"
     }
     CompositeTypes: {
       [_ in never]: never
@@ -380,6 +759,8 @@ export type CompositeTypes<
 
 export const Constants = {
   public: {
-    Enums: {},
+    Enums: {
+      app_role: ["admin", "user"],
+    },
   },
 } as const
