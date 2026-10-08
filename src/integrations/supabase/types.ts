@@ -630,6 +630,10 @@ export type Database = {
         }
         Returns: boolean
       }
+      proxy_stat: {
+        Args: { _id: string; _outcome: string }
+        Returns: undefined
+      }
     }
     Enums: {
       app_role: "admin" | "user"
