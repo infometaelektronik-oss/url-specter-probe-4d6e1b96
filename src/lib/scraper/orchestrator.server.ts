@@ -1,307 +1,229 @@
-// Otonom orchestrator — discover → extract → validate → classify → dedupe → Choicely push
+// Core engine: discover -> enqueue -> parallel workers -> deep extract -> validate -> classify -> store -> feed.
 import { supabaseAdmin } from "@/integrations/supabase/client.server";
 import { pushToChoicely, deactivateOnChoicely } from "./choicely.server";
 import { searchDuckDuckGo, searchGitHub, scanPastebinTrends } from "./discovery.server";
+import { smartFetch, pooled, telemetry } from "./fetch.server";
 import { classifyContent } from "./nlp.server";
+import { normKey } from "./epg.server";
+import { notify } from "./webhooks.server";
 import {
-  cleanTitle,
-  extractIframes,
-  extractStreamUrls,
-  guessCategory,
-  guessType,
-  META_DESC_RE,
-  OG_IMAGE_RE,
-  TITLE_RE,
+  cleanTitle, deepExtract, extractIframes, extractScripts, guessCategory, guessType,
+  META_DESC_RE, OG_IMAGE_RE, TITLE_RE,
 } from "./regex.server";
-import { safeFetch } from "./user-agents";
 import { validateStream } from "./validate.server";
 
 type LogRow = { level: "info" | "ok" | "warn" | "error"; phase: string; message: string; meta?: Record<string, string | number | boolean | null> };
 
 async function log(rows: LogRow[]) {
   if (!rows.length) return;
-  await supabaseAdmin
-    .from("scraper_logs")
-    .insert(rows.map((r) => ({ ...r, meta: (r.meta ?? {}) as never })));
+  await supabaseAdmin.from("scraper_logs").insert(rows.map((r) => ({ ...r, meta: (r.meta ?? {}) as never })));
 }
 
-const HOST_LIMIT_PER_RUN = 30;
-const STREAMS_PER_PAGE = 8;
+const CONCURRENCY = 6; // worker runtime allows 6 outbound connections per invocation
 
 export type DiscoverySummary = {
-  queries: number;
-  pages: number;
-  candidates: number;
-  validated: number;
-  inserted: number;
-  updated: number;
-  pushed: number;
-  logs: LogRow[];
+  queries: number; enqueued: number; pages: number; candidates: number;
+  validated: number; inserted: number; updated: number; pushed: number; logs: LogRow[];
 };
 
+/** Phase A — find candidate pages and push them into the shared job queue. */
 export async function runDiscovery(opts: { manual?: boolean } = {}): Promise<DiscoverySummary> {
-  const summary: DiscoverySummary = {
-    queries: 0,
-    pages: 0,
-    candidates: 0,
-    validated: 0,
-    inserted: 0,
-    updated: 0,
-    pushed: 0,
-    logs: [],
-  };
+  const summary: DiscoverySummary = { queries: 0, enqueued: 0, pages: 0, candidates: 0, validated: 0, inserted: 0, updated: 0, pushed: 0, logs: [] };
   const buffer: LogRow[] = [];
-  const push = (r: LogRow) => {
-    buffer.push(r);
-    summary.logs.push(r);
-    if (buffer.length >= 20) {
-      void log(buffer.splice(0, buffer.length));
-    }
-  };
+  const push = (r: LogRow) => { buffer.push(r); summary.logs.push(r); };
 
-  push({ level: "info", phase: "discover", message: `Otonom tarama başladı${opts.manual ? " (manuel)" : ""}` });
+  push({ level: "info", phase: "discover", message: `Keşif turu başladı${opts.manual ? " (manuel)" : ""}` });
 
-  // 1) Query havuzu — DB'den aktif sorguları çek
   const { data: queries } = await supabaseAdmin
-    .from("discovery_queries")
-    .select("*")
-    .eq("active", true)
-    .order("last_run_at", { ascending: true, nullsFirst: true })
-    .limit(12);
+    .from("discovery_queries").select("*").eq("active", true)
+    .order("last_run_at", { ascending: true, nullsFirst: true }).limit(12);
 
-  const queryList = queries ?? [];
-  summary.queries = queryList.length;
+  const list = queries ?? [];
+  summary.queries = list.length;
+  const candidates = new Set<string>();
 
-  // 2) Aday sayfalar topla
-  const candidatePages = new Set<string>();
-  for (const q of queryList) {
+  await pooled(list, CONCURRENCY, async (q) => {
     let hits: string[] = [];
     try {
-      if (q.engine === "duckduckgo") hits = await searchDuckDuckGo(q.query, 12);
-      else if (q.engine === "github") hits = await searchGitHub(q.query, 8);
-    } catch {
-      /* ignore */
-    }
-    push({ level: hits.length ? "ok" : "warn", phase: "discover", message: `${q.engine}: "${q.query}" → ${hits.length} sayfa` });
-    hits.forEach((h) => candidatePages.add(h));
-    await supabaseAdmin
-      .from("discovery_queries")
-      .update({ last_run_at: new Date().toISOString(), hit_count: (q.hit_count ?? 0) + hits.length })
-      .eq("id", q.id);
-  }
-
-  // 3) Pastebin trend (OSINT — 6 saatte bir mantığı için opts.manual olmasa da her çalışmada 10 tane çek)
-  try {
-    const pastes = await scanPastebinTrends();
-    pastes.forEach((p) => candidatePages.add(p));
-    push({ level: "ok", phase: "discover", message: `pastebin archive → ${pastes.length} paste` });
-  } catch {
-    /* ignore */
-  }
-
-  const pages = Array.from(candidatePages).slice(0, HOST_LIMIT_PER_RUN);
-  summary.pages = pages.length;
-
-  // 4) Her sayfayı indir → stream URL & metadata çıkar → validate → sınıflandır → kaydet
-  for (const page of pages) {
-    try {
-      const r = await safeFetch(page, { timeoutMs: 10000 });
-      if (!r.text) continue;
-
-      const streams = extractStreamUrls(r.text).slice(0, STREAMS_PER_PAGE);
-      const iframes = extractIframes(r.text, page).slice(0, 3);
-
-      // iframe'lerin içine de dal (1 seviye derinlik)
-      for (const iframe of iframes) {
-        const ir = await safeFetch(iframe, { timeoutMs: 8000, referer: page });
-        if (ir.text) extractStreamUrls(ir.text).forEach((s) => streams.push(s));
-      }
-
-      const uniqueStreams = Array.from(new Set(streams));
-      summary.candidates += uniqueStreams.length;
-      if (!uniqueStreams.length) continue;
-
-      const title = r.text.match(TITLE_RE)?.[1] ?? "";
-      const desc = r.text.match(META_DESC_RE)?.[1] ?? "";
-      const poster = r.text.match(OG_IMAGE_RE)?.[1] ?? null;
-      const host = (() => {
-        try {
-          return new URL(page).host;
-        } catch {
-          return "unknown";
-        }
-      })();
-
-      push({ level: "info", phase: "extract", message: `${host} → ${uniqueStreams.length} aday`, meta: { page } });
-
-      // Failover group anchor = temizlenmiş title
-      const cleaned = cleanTitle(title);
-
-      for (const stream of uniqueStreams) {
-        // Validate
-        const v = await validateStream(stream, page);
-        if (!v.ok || !v.isVideo) {
-          push({ level: "warn", phase: "validate", message: `RED ${stream.slice(0, 80)} (${v.status})` });
-          continue;
-        }
-        if (v.geoBlocked) {
-          push({ level: "warn", phase: "validate", message: `geoblocked ${stream.slice(0, 80)}` });
-          // yine kaydet, ama etikete geoblocked ekle
-        }
-        summary.validated += 1;
-
-        // AI classify (best effort; fallback keyword)
-        const ai = await classifyContent({
-          title,
-          description: desc,
-          sourceUrl: page,
-          streamUrl: stream,
-        });
-        const finalTitle = ai?.title || cleaned;
-        const category = ai?.category || guessCategory(`${title} ${desc} ${stream}`);
-        const type = ai?.type || guessType(`${title} ${stream}`);
-        const resolution = v.resolution !== "unknown" ? v.resolution : ai?.quality || "unknown";
-
-        // Dedupe upsert
-        const row = {
-          title: finalTitle,
-          normalized_title: finalTitle.toLowerCase(),
-          type,
-          category: v.geoBlocked ? `${category} (GEO)` : category,
-          stream_url: stream,
-          poster_image_url: poster,
-          resolution,
-          source: host,
-          source_website: page,
-          custom_headers: v.customHeaders as never,
-          failover_group: finalTitle.toLowerCase(),
-          status: "active",
-          failure_count: 0,
-          last_checked_at: new Date().toISOString(),
-          is_active: true,
-        };
-
-        const { data: existing } = await supabaseAdmin
-          .from("autonomous_streams")
-          .select("id, choicely_id")
-          .eq("stream_url", stream)
-          .maybeSingle();
-
-        let choicelyId: string | null = existing?.choicely_id ?? null;
-
-        if (existing) {
-          await supabaseAdmin
-            .from("autonomous_streams")
-            .update({ ...row, updated_at: new Date().toISOString() } as never)
-            .eq("id", existing.id);
-          summary.updated += 1;
-        } else {
-          const { data: ins } = await supabaseAdmin
-            .from("autonomous_streams")
-            .insert(row as never)
-            .select("id")
-            .single();
-          summary.inserted += 1;
-          push({ level: "ok", phase: "extract", message: `+ ${finalTitle} [${resolution}]`, meta: { id: ins?.id ?? null } });
-        }
-
-        // Choicely push
-        const cp = await pushToChoicely({
-          title: finalTitle,
-          type,
-          source: host,
-          category,
-          poster_image_url: poster,
-          video_stream_url: stream,
-          is_active: true,
-          custom_headers: v.customHeaders,
-          resolution,
-        });
-        if (cp.ok) {
-          summary.pushed += 1;
-          if (cp.id && cp.id !== choicelyId) {
-            await supabaseAdmin
-              .from("autonomous_streams")
-              .update({ choicely_id: cp.id, last_pushed_at: new Date().toISOString() } as never)
-              .eq("stream_url", stream);
-          } else {
-            await supabaseAdmin
-              .from("autonomous_streams")
-              .update({ last_pushed_at: new Date().toISOString() } as never)
-              .eq("stream_url", stream);
-          }
-          push({ level: "ok", phase: "push", message: `→ Choicely: ${finalTitle}` });
-        } else {
-          push({ level: "warn", phase: "push", message: `Choicely reddetti: ${cp.error}` });
-        }
-      }
-    } catch (e) {
-      push({ level: "error", phase: "extract", message: `${page}: ${(e as Error).message}` });
-    }
-  }
-
-  push({
-    level: "info",
-    phase: "discover",
-    message: `Tamamlandı — ${summary.inserted} yeni, ${summary.updated} güncel, ${summary.pushed} Choicely'e gitti.`,
+      if (q.engine === "duckduckgo") hits = await searchDuckDuckGo(q.query, 15);
+      else if (q.engine === "github") hits = await searchGitHub(q.query, 10);
+    } catch { /* ignore */ }
+    hits.forEach((h) => candidates.add(h));
+    push({ level: hits.length ? "ok" : "warn", phase: "discover", message: `${q.engine}: "${q.query}" → ${hits.length}` });
+    await supabaseAdmin.from("discovery_queries")
+      .update({ last_run_at: new Date().toISOString(), hit_count: (q.hit_count ?? 0) + hits.length }).eq("id", q.id);
   });
+
+  try {
+    (await scanPastebinTrends()).forEach((p) => candidates.add(p));
+  } catch { /* ignore */ }
+
+  const rows = Array.from(candidates).slice(0, 200).map((url) => ({ url, depth: 0 }));
+  if (rows.length) {
+    const { data: ins } = await supabaseAdmin.from("crawl_jobs").upsert(rows as never, { onConflict: "url", ignoreDuplicates: true }).select("id");
+    summary.enqueued = ins?.length ?? rows.length;
+  }
+  push({ level: "ok", phase: "discover", message: `${summary.enqueued} yeni görev kuyruğa alındı` });
   await log(buffer);
+
+  // immediately process a first batch so manual runs show results right away
+  const worked = await runWorker({ batch: 8 });
+  summary.pages = worked.pages;
+  summary.candidates = worked.candidates;
+  summary.validated = worked.validated;
+  summary.inserted = worked.inserted;
+  summary.updated = worked.updated;
+  summary.pushed = worked.pushed;
+  summary.logs.push(...worked.logs);
   return summary;
 }
 
-export type HealthSummary = {
-  checked: number;
-  killed: number;
-  restored: number;
-  removedFromChoicely: number;
-};
+export type WorkerSummary = { pages: number; candidates: number; validated: number; inserted: number; updated: number; pushed: number; logs: LogRow[] };
+
+/** Phase B — claim jobs from the queue and process them in parallel. */
+export async function runWorker(opts: { batch?: number } = {}): Promise<WorkerSummary> {
+  telemetry.reset();
+  const s: WorkerSummary = { pages: 0, candidates: 0, validated: 0, inserted: 0, updated: 0, pushed: 0, logs: [] };
+  const buffer: LogRow[] = [];
+  const push = (r: LogRow) => { buffer.push(r); s.logs.push(r); };
+
+  const { data: jobs } = await supabaseAdmin.rpc("claim_jobs", { _n: opts.batch ?? 6 });
+  if (!jobs?.length) {
+    await log([{ level: "info", phase: "worker", message: "Kuyruk boş" }]);
+    return s;
+  }
+
+  await pooled(jobs, CONCURRENCY, async (job) => {
+    try {
+      const res = await smartFetch(job.url, { timeoutMs: 12000, referer: job.referer ?? undefined, attempts: 3 });
+      if (!res.text) {
+        await supabaseAdmin.from("crawl_jobs").update({ status: "failed", error: `status ${res.status}`, finished_at: new Date().toISOString() }).eq("id", job.id);
+        push({ level: "warn", phase: "fetch", message: `${job.url.slice(0, 70)} → ${res.status}${res.blocked ? " (engellendi)" : ""}` });
+        return;
+      }
+      s.pages += 1;
+
+      const streams = new Set(deepExtract(res.text, job.url));
+
+      // one level deeper: iframes + external scripts (heuristic adaptation)
+      if (job.depth < 2) {
+        const deeper = [...extractIframes(res.text, job.url).slice(0, 3), ...extractScripts(res.text, job.url).filter((u) => /player|embed|stream|hls|config|app|main/i.test(u)).slice(0, 4)];
+        await pooled(deeper, 4, async (u) => {
+          const r2 = await smartFetch(u, { timeoutMs: 9000, referer: job.url, attempts: 2 });
+          if (r2.text) deepExtract(r2.text, u).forEach((x) => streams.add(x));
+        });
+      }
+
+      const unique = Array.from(streams).slice(0, 12);
+      s.candidates += unique.length;
+      const title = res.text.match(TITLE_RE)?.[1] ?? "";
+      const desc = res.text.match(META_DESC_RE)?.[1] ?? "";
+      const poster = res.text.match(OG_IMAGE_RE)?.[1] ?? null;
+      const host = (() => { try { return new URL(job.url).host; } catch { return "unknown"; } })();
+      if (unique.length) push({ level: "info", phase: "extract", message: `${host} → ${unique.length} aday akış` });
+
+      await pooled(unique, 3, async (stream) => {
+        const v = await validateStream(stream, job.url);
+        if (!v.ok || (!v.isVideo && v.qualityTier !== "AUDIO")) return;
+        s.validated += 1;
+
+        const ai = await classifyContent({ title, description: desc, sourceUrl: job.url, streamUrl: stream });
+        const finalTitle = ai?.title || cleanTitle(title);
+        const category = ai?.category || guessCategory(`${title} ${desc} ${stream}`);
+        const type = ai?.type || guessType(`${title} ${stream}`);
+
+        const row = {
+          title: finalTitle, normalized_title: normKey(finalTitle), type,
+          category: v.geoBlocked ? `${category} (GEO)` : category,
+          stream_url: stream, poster_image_url: poster,
+          resolution: v.resolution !== "unknown" ? v.resolution : (ai?.quality ?? "unknown"),
+          quality_tier: v.qualityTier, bitrate_kbps: v.bitrateKbps, variants: v.variants as never,
+          response_ms: v.responseMs, geo_country: v.geoCountry,
+          priority: v.qualityTier === "FHD" ? 30 : v.qualityTier === "HD" ? 20 : 10,
+          source: host, source_website: job.url, custom_headers: v.customHeaders as never,
+          failover_group: normKey(finalTitle), status: "active", failure_count: 0,
+          last_checked_at: new Date().toISOString(), is_active: true,
+        };
+
+        const { data: existing } = await supabaseAdmin.from("autonomous_streams").select("id").eq("stream_url", stream).maybeSingle();
+        if (existing) {
+          await supabaseAdmin.from("autonomous_streams").update({ ...row, updated_at: new Date().toISOString() } as never).eq("id", existing.id);
+          s.updated += 1;
+        } else {
+          await supabaseAdmin.from("autonomous_streams").insert(row as never);
+          s.inserted += 1;
+          push({ level: "ok", phase: "extract", message: `+ ${finalTitle} [${v.qualityTier} ${v.resolution}]` });
+        }
+
+        const cp = await pushToChoicely({
+          title: finalTitle, type, source: host, category, poster_image_url: poster,
+          video_stream_url: stream, is_active: true, custom_headers: v.customHeaders, resolution: row.resolution,
+        });
+        if (cp.ok) {
+          s.pushed += 1;
+          await supabaseAdmin.from("autonomous_streams")
+            .update({ last_pushed_at: new Date().toISOString(), ...(cp.id ? { choicely_id: cp.id } : {}) } as never)
+            .eq("stream_url", stream);
+        }
+      });
+
+      await supabaseAdmin.from("crawl_jobs").update({ status: "done", finished_at: new Date().toISOString() }).eq("id", job.id);
+    } catch (e) {
+      await supabaseAdmin.from("crawl_jobs").update({ status: "failed", error: (e as Error).message, finished_at: new Date().toISOString() }).eq("id", job.id);
+      push({ level: "error", phase: "worker", message: `${job.url.slice(0, 60)}: ${(e as Error).message}` });
+    }
+  });
+
+  const t = telemetry.snapshot();
+  await supabaseAdmin.from("engine_metrics").insert({ kind: "worker", ...t, found: s.inserted });
+  push({ level: "info", phase: "worker", message: `Tur bitti — ${s.inserted} yeni, ${s.updated} güncel, ${t.banned} engel, ort. ${t.avg_ms}ms` });
+  if (s.inserted > 0) await notify("new_source", "Yeni akışlar bulundu", `${s.inserted} yeni akış eklendi (${s.pages} sayfa tarandı).`);
+  await log(buffer);
+  return s;
+}
+
+export type HealthSummary = { checked: number; killed: number; restored: number; removedFromChoicely: number };
 
 export async function runHealthCheck(): Promise<HealthSummary> {
+  telemetry.reset();
   const summary: HealthSummary = { checked: 0, killed: 0, restored: 0, removedFromChoicely: 0 };
   const { data: rows } = await supabaseAdmin
     .from("autonomous_streams")
-    .select("id, stream_url, failure_count, status, choicely_id, source_website")
+    .select("id, title, stream_url, failure_count, status, choicely_id, source_website, geo_country")
     .order("last_checked_at", { ascending: true, nullsFirst: true })
-    .limit(120);
-  const buffer: LogRow[] = [
-    { level: "info", phase: "health", message: `Sağlık taraması: ${rows?.length ?? 0} link` },
-  ];
+    .limit(90);
+  const buffer: LogRow[] = [{ level: "info", phase: "health", message: `Sağlık taraması: ${rows?.length ?? 0} akış` }];
+  const dead: string[] = [];
 
-  for (const row of rows ?? []) {
+  await pooled(rows ?? [], CONCURRENCY, async (row) => {
     summary.checked += 1;
-    const v = await validateStream(row.stream_url, row.source_website ?? undefined);
+    const v = await validateStream(row.stream_url, row.source_website ?? undefined, row.geo_country ?? undefined);
     const now = new Date().toISOString();
-    if (v.ok && v.isVideo) {
-      await supabaseAdmin
-        .from("autonomous_streams")
-        .update({ failure_count: 0, status: "active", is_active: true, last_checked_at: now } as never)
-        .eq("id", row.id);
+    if (v.ok && (v.isVideo || v.qualityTier === "AUDIO")) {
+      await supabaseAdmin.from("autonomous_streams").update({
+        failure_count: 0, status: "active", is_active: true, last_checked_at: now,
+        quality_tier: v.qualityTier, bitrate_kbps: v.bitrateKbps, variants: v.variants as never, response_ms: v.responseMs,
+      } as never).eq("id", row.id);
       if (row.status !== "active") summary.restored += 1;
     } else {
       const nextFail = (row.failure_count ?? 0) + 1;
-      const shouldKill = nextFail >= 3;
-      await supabaseAdmin
-        .from("autonomous_streams")
-        .update({
-          failure_count: nextFail,
-          status: shouldKill ? "inactive" : row.status,
-          is_active: !shouldKill,
-          last_checked_at: now,
-        } as never)
+      const kill = nextFail >= 3;
+      await supabaseAdmin.from("autonomous_streams")
+        .update({ failure_count: nextFail, status: kill ? "inactive" : row.status, is_active: !kill, last_checked_at: now } as never)
         .eq("id", row.id);
-      if (shouldKill) {
+      if (kill) {
         summary.killed += 1;
-        buffer.push({ level: "warn", phase: "health", message: `× ölü link: ${row.stream_url.slice(0, 80)}` });
-        const dc = await deactivateOnChoicely(row.choicely_id, row.stream_url);
-        if (dc.ok) summary.removedFromChoicely += 1;
+        dead.push(row.title);
+        buffer.push({ level: "warn", phase: "health", message: `× ölü: ${row.title}` });
+        if ((await deactivateOnChoicely(row.choicely_id, row.stream_url)).ok) summary.removedFromChoicely += 1;
       }
     }
-  }
-  buffer.push({
-    level: "ok",
-    phase: "health",
-    message: `Health done — ${summary.killed} elendi, ${summary.restored} geri geldi, ${summary.removedFromChoicely} Choicely'den silindi.`,
   });
+
+  const t = telemetry.snapshot();
+  await supabaseAdmin.from("engine_metrics").insert({ kind: "health", ...t, found: summary.restored });
+  buffer.push({ level: "ok", phase: "health", message: `Health — ${summary.killed} elendi, ${summary.restored} geri döndü` });
+  if (dead.length) await notify("stream_down", "Yayın koptu", dead.slice(0, 20).join("\n"));
   await log(buffer);
   return summary;
 }

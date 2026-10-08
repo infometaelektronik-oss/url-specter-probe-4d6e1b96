@@ -8,6 +8,13 @@
       "when": 1791022745895,
       "tag": "0000_core_engine",
       "breakpoints": true
+    },
+    {
+      "idx": 1,
+      "version": "7",
+      "when": 1791473462228,
+      "tag": "0001_proxy_stat",
+      "breakpoints": true
     }
   ]
 }

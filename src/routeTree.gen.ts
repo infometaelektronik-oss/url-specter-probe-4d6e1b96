@@ -10,143 +10,178 @@
 
 import { Route as rootRouteImport } from './routes/__root'
 import { Route as IndexRouteImport } from './routes/index'
-import { Route as HavuzRouteImport } from './routes/havuz'
-import { Route as OtonomRouteImport } from './routes/otonom'
-import { Route as ApiStreamEpisodeRouteImport } from './routes/api/stream/episode'
-import { Route as ApiStreamLiveRouteImport } from './routes/api/stream/live'
-import { Route as ApiStreamMovieRouteImport } from './routes/api/stream/movie'
-import { Route as ApiPublicHooksAutoCrawlRouteImport } from './routes/api/public/hooks/auto-crawl'
-import { Route as ApiPublicHooksAutonomousDiscoverRouteImport } from './routes/api/public/hooks/autonomous-discover'
-import { Route as ApiPublicHooksAutonomousHealthRouteImport } from './routes/api/public/hooks/autonomous-health'
+import { Route as AuthenticatedRouteRouteImport } from './routes/_authenticated/route'
+import { Route as AuthRouteImport } from './routes/auth'
+import { Route as AuthenticatedConsoleRouteImport } from './routes/_authenticated/console'
+import { Route as ApiPublicHooksEngineDiscoverRouteImport } from './routes/api/public/hooks/engine-discover'
+import { Route as ApiPublicHooksEngineEpgRouteImport } from './routes/api/public/hooks/engine-epg'
+import { Route as ApiPublicHooksEngineHealthRouteImport } from './routes/api/public/hooks/engine-health'
+import { Route as ApiPublicHooksEngineWorkerRouteImport } from './routes/api/public/hooks/engine-worker'
+import { Route as ApiPublicV1EpgDotxmlRouteImport } from './routes/api/public/v1/epg[.]xml'
+import { Route as ApiPublicV1PlaylistDotm3uRouteImport } from './routes/api/public/v1/playlist[.]m3u'
+import { Route as ApiPublicV1StreamsRouteImport } from './routes/api/public/v1/streams'
+import { Route as ApiPublicV1StreamIdRouteImport } from './routes/api/public/v1/stream/$id'
 
 const IndexRoute = IndexRouteImport.update({
   id: '/',
   path: '/',
   getParentRoute: () => rootRouteImport,
 } as any)
-const HavuzRoute = HavuzRouteImport.update({
-  id: '/havuz',
-  path: '/havuz',
+const AuthenticatedRouteRoute = AuthenticatedRouteRouteImport.update({
+  id: '/_authenticated',
   getParentRoute: () => rootRouteImport,
 } as any)
-const OtonomRoute = OtonomRouteImport.update({
-  id: '/otonom',
-  path: '/otonom',
+const AuthRoute = AuthRouteImport.update({
+  id: '/auth',
+  path: '/auth',
   getParentRoute: () => rootRouteImport,
 } as any)
-const ApiStreamEpisodeRoute = ApiStreamEpisodeRouteImport.update({
-  id: '/api/stream/episode',
-  path: '/api/stream/episode',
-  getParentRoute: () => rootRouteImport,
+const AuthenticatedConsoleRoute = AuthenticatedConsoleRouteImport.update({
+  id: '/console',
+  path: '/console',
+  getParentRoute: () => AuthenticatedRouteRoute,
 } as any)
-const ApiStreamLiveRoute = ApiStreamLiveRouteImport.update({
-  id: '/api/stream/live',
-  path: '/api/stream/live',
-  getParentRoute: () => rootRouteImport,
-} as any)
-const ApiStreamMovieRoute = ApiStreamMovieRouteImport.update({
-  id: '/api/stream/movie',
-  path: '/api/stream/movie',
-  getParentRoute: () => rootRouteImport,
-} as any)
-const ApiPublicHooksAutoCrawlRoute = ApiPublicHooksAutoCrawlRouteImport.update({
-  id: '/api/public/hooks/auto-crawl',
-  path: '/api/public/hooks/auto-crawl',
-  getParentRoute: () => rootRouteImport,
-} as any)
-const ApiPublicHooksAutonomousDiscoverRoute =
-  ApiPublicHooksAutonomousDiscoverRouteImport.update({
-    id: '/api/public/hooks/autonomous-discover',
-    path: '/api/public/hooks/autonomous-discover',
+const ApiPublicHooksEngineDiscoverRoute =
+  ApiPublicHooksEngineDiscoverRouteImport.update({
+    id: '/api/public/hooks/engine-discover',
+    path: '/api/public/hooks/engine-discover',
     getParentRoute: () => rootRouteImport,
   } as any)
-const ApiPublicHooksAutonomousHealthRoute =
-  ApiPublicHooksAutonomousHealthRouteImport.update({
-    id: '/api/public/hooks/autonomous-health',
-    path: '/api/public/hooks/autonomous-health',
+const ApiPublicHooksEngineEpgRoute = ApiPublicHooksEngineEpgRouteImport.update({
+  id: '/api/public/hooks/engine-epg',
+  path: '/api/public/hooks/engine-epg',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const ApiPublicHooksEngineHealthRoute =
+  ApiPublicHooksEngineHealthRouteImport.update({
+    id: '/api/public/hooks/engine-health',
+    path: '/api/public/hooks/engine-health',
     getParentRoute: () => rootRouteImport,
   } as any)
+const ApiPublicHooksEngineWorkerRoute =
+  ApiPublicHooksEngineWorkerRouteImport.update({
+    id: '/api/public/hooks/engine-worker',
+    path: '/api/public/hooks/engine-worker',
+    getParentRoute: () => rootRouteImport,
+  } as any)
+const ApiPublicV1EpgDotxmlRoute = ApiPublicV1EpgDotxmlRouteImport.update({
+  id: '/api/public/v1/epg.xml',
+  path: '/api/public/v1/epg.xml',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const ApiPublicV1PlaylistDotm3uRoute =
+  ApiPublicV1PlaylistDotm3uRouteImport.update({
+    id: '/api/public/v1/playlist.m3u',
+    path: '/api/public/v1/playlist.m3u',
+    getParentRoute: () => rootRouteImport,
+  } as any)
+const ApiPublicV1StreamsRoute = ApiPublicV1StreamsRouteImport.update({
+  id: '/api/public/v1/streams',
+  path: '/api/public/v1/streams',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const ApiPublicV1StreamIdRoute = ApiPublicV1StreamIdRouteImport.update({
+  id: '/api/public/v1/stream/$id',
+  path: '/api/public/v1/stream/$id',
+  getParentRoute: () => rootRouteImport,
+} as any)
 
 export interface FileRoutesByFullPath {
   '/': typeof IndexRoute
-  '/havuz': typeof HavuzRoute
-  '/otonom': typeof OtonomRoute
-  '/api/stream/episode': typeof ApiStreamEpisodeRoute
-  '/api/stream/live': typeof ApiStreamLiveRoute
-  '/api/stream/movie': typeof ApiStreamMovieRoute
-  '/api/public/hooks/auto-crawl': typeof ApiPublicHooksAutoCrawlRoute
-  '/api/public/hooks/autonomous-discover': typeof ApiPublicHooksAutonomousDiscoverRoute
-  '/api/public/hooks/autonomous-health': typeof ApiPublicHooksAutonomousHealthRoute
+  '/auth': typeof AuthRoute
+  '/console': typeof AuthenticatedConsoleRoute
+  '/api/public/hooks/engine-discover': typeof ApiPublicHooksEngineDiscoverRoute
+  '/api/public/hooks/engine-epg': typeof ApiPublicHooksEngineEpgRoute
+  '/api/public/hooks/engine-health': typeof ApiPublicHooksEngineHealthRoute
+  '/api/public/hooks/engine-worker': typeof ApiPublicHooksEngineWorkerRoute
+  '/api/public/v1/epg.xml': typeof ApiPublicV1EpgDotxmlRoute
+  '/api/public/v1/playlist.m3u': typeof ApiPublicV1PlaylistDotm3uRoute
+  '/api/public/v1/streams': typeof ApiPublicV1StreamsRoute
+  '/api/public/v1/stream/$id': typeof ApiPublicV1StreamIdRoute
 }
 export interface FileRoutesByTo {
   '/': typeof IndexRoute
-  '/havuz': typeof HavuzRoute
-  '/otonom': typeof OtonomRoute
-  '/api/stream/episode': typeof ApiStreamEpisodeRoute
-  '/api/stream/live': typeof ApiStreamLiveRoute
-  '/api/stream/movie': typeof ApiStreamMovieRoute
-  '/api/public/hooks/auto-crawl': typeof ApiPublicHooksAutoCrawlRoute
-  '/api/public/hooks/autonomous-discover': typeof ApiPublicHooksAutonomousDiscoverRoute
-  '/api/public/hooks/autonomous-health': typeof ApiPublicHooksAutonomousHealthRoute
+  '/auth': typeof AuthRoute
+  '/console': typeof AuthenticatedConsoleRoute
+  '/api/public/hooks/engine-discover': typeof ApiPublicHooksEngineDiscoverRoute
+  '/api/public/hooks/engine-epg': typeof ApiPublicHooksEngineEpgRoute
+  '/api/public/hooks/engine-health': typeof ApiPublicHooksEngineHealthRoute
+  '/api/public/hooks/engine-worker': typeof ApiPublicHooksEngineWorkerRoute
+  '/api/public/v1/epg.xml': typeof ApiPublicV1EpgDotxmlRoute
+  '/api/public/v1/playlist.m3u': typeof ApiPublicV1PlaylistDotm3uRoute
+  '/api/public/v1/streams': typeof ApiPublicV1StreamsRoute
+  '/api/public/v1/stream/$id': typeof ApiPublicV1StreamIdRoute
 }
 export interface FileRoutesById {
   __root__: typeof rootRouteImport
   '/': typeof IndexRoute
-  '/havuz': typeof HavuzRoute
-  '/otonom': typeof OtonomRoute
-  '/api/stream/episode': typeof ApiStreamEpisodeRoute
-  '/api/stream/live': typeof ApiStreamLiveRoute
-  '/api/stream/movie': typeof ApiStreamMovieRoute
-  '/api/public/hooks/auto-crawl': typeof ApiPublicHooksAutoCrawlRoute
-  '/api/public/hooks/autonomous-discover': typeof ApiPublicHooksAutonomousDiscoverRoute
-  '/api/public/hooks/autonomous-health': typeof ApiPublicHooksAutonomousHealthRoute
+  '/_authenticated': typeof AuthenticatedRouteRouteWithChildren
+  '/auth': typeof AuthRoute
+  '/_authenticated/console': typeof AuthenticatedConsoleRoute
+  '/api/public/hooks/engine-discover': typeof ApiPublicHooksEngineDiscoverRoute
+  '/api/public/hooks/engine-epg': typeof ApiPublicHooksEngineEpgRoute
+  '/api/public/hooks/engine-health': typeof ApiPublicHooksEngineHealthRoute
+  '/api/public/hooks/engine-worker': typeof ApiPublicHooksEngineWorkerRoute
+  '/api/public/v1/epg.xml': typeof ApiPublicV1EpgDotxmlRoute
+  '/api/public/v1/playlist.m3u': typeof ApiPublicV1PlaylistDotm3uRoute
+  '/api/public/v1/streams': typeof ApiPublicV1StreamsRoute
+  '/api/public/v1/stream/$id': typeof ApiPublicV1StreamIdRoute
 }
 export interface FileRouteTypes {
   fileRoutesByFullPath: FileRoutesByFullPath
   fullPaths:
     | '/'
-    | '/havuz'
-    | '/otonom'
-    | '/api/stream/episode'
-    | '/api/stream/live'
-    | '/api/stream/movie'
-    | '/api/public/hooks/auto-crawl'
-    | '/api/public/hooks/autonomous-discover'
-    | '/api/public/hooks/autonomous-health'
+    | '/auth'
+    | '/console'
+    | '/api/public/hooks/engine-discover'
+    | '/api/public/hooks/engine-epg'
+    | '/api/public/hooks/engine-health'
+    | '/api/public/hooks/engine-worker'
+    | '/api/public/v1/epg.xml'
+    | '/api/public/v1/playlist.m3u'
+    | '/api/public/v1/streams'
+    | '/api/public/v1/stream/$id'
   fileRoutesByTo: FileRoutesByTo
   to:
     | '/'
-    | '/havuz'
-    | '/otonom'
-    | '/api/stream/episode'
-    | '/api/stream/live'
-    | '/api/stream/movie'
-    | '/api/public/hooks/auto-crawl'
-    | '/api/public/hooks/autonomous-discover'
-    | '/api/public/hooks/autonomous-health'
+    | '/auth'
+    | '/console'
+    | '/api/public/hooks/engine-discover'
+    | '/api/public/hooks/engine-epg'
+    | '/api/public/hooks/engine-health'
+    | '/api/public/hooks/engine-worker'
+    | '/api/public/v1/epg.xml'
+    | '/api/public/v1/playlist.m3u'
+    | '/api/public/v1/streams'
+    | '/api/public/v1/stream/$id'
   id:
     | '__root__'
     | '/'
-    | '/havuz'
-    | '/otonom'
-    | '/api/stream/episode'
-    | '/api/stream/live'
-    | '/api/stream/movie'
-    | '/api/public/hooks/auto-crawl'
-    | '/api/public/hooks/autonomous-discover'
-    | '/api/public/hooks/autonomous-health'
+    | '/_authenticated'
+    | '/auth'
+    | '/_authenticated/console'
+    | '/api/public/hooks/engine-discover'
+    | '/api/public/hooks/engine-epg'
+    | '/api/public/hooks/engine-health'
+    | '/api/public/hooks/engine-worker'
+    | '/api/public/v1/epg.xml'
+    | '/api/public/v1/playlist.m3u'
+    | '/api/public/v1/streams'
+    | '/api/public/v1/stream/$id'
   fileRoutesById: FileRoutesById
 }
 export interface RootRouteChildren {
   IndexRoute: typeof IndexRoute
-  HavuzRoute: typeof HavuzRoute
-  OtonomRoute: typeof OtonomRoute
-  ApiStreamEpisodeRoute: typeof ApiStreamEpisodeRoute
-  ApiStreamLiveRoute: typeof ApiStreamLiveRoute
-  ApiStreamMovieRoute: typeof ApiStreamMovieRoute
-  ApiPublicHooksAutoCrawlRoute: typeof ApiPublicHooksAutoCrawlRoute
-  ApiPublicHooksAutonomousDiscoverRoute: typeof ApiPublicHooksAutonomousDiscoverRoute
-  ApiPublicHooksAutonomousHealthRoute: typeof ApiPublicHooksAutonomousHealthRoute
+  AuthenticatedRouteRoute: typeof AuthenticatedRouteRouteWithChildren
+  AuthRoute: typeof AuthRoute
+  ApiPublicHooksEngineDiscoverRoute: typeof ApiPublicHooksEngineDiscoverRoute
+  ApiPublicHooksEngineEpgRoute: typeof ApiPublicHooksEngineEpgRoute
+  ApiPublicHooksEngineHealthRoute: typeof ApiPublicHooksEngineHealthRoute
+  ApiPublicHooksEngineWorkerRoute: typeof ApiPublicHooksEngineWorkerRoute
+  ApiPublicV1EpgDotxmlRoute: typeof ApiPublicV1EpgDotxmlRoute
+  ApiPublicV1PlaylistDotm3uRoute: typeof ApiPublicV1PlaylistDotm3uRoute
+  ApiPublicV1StreamsRoute: typeof ApiPublicV1StreamsRoute
+  ApiPublicV1StreamIdRoute: typeof ApiPublicV1StreamIdRoute
 }
 
 declare module '@tanstack/react-router' {
@@ -158,75 +193,109 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof IndexRouteImport
       parentRoute: typeof rootRouteImport
     }
-    '/havuz': {
-      id: '/havuz'
-      path: '/havuz'
-      fullPath: '/havuz'
-      preLoaderRoute: typeof HavuzRouteImport
+    '/_authenticated': {
+      id: '/_authenticated'
+      path: ''
+      fullPath: '/'
+      preLoaderRoute: typeof AuthenticatedRouteRouteImport
       parentRoute: typeof rootRouteImport
     }
-    '/otonom': {
-      id: '/otonom'
-      path: '/otonom'
-      fullPath: '/otonom'
-      preLoaderRoute: typeof OtonomRouteImport
+    '/auth': {
+      id: '/auth'
+      path: '/auth'
+      fullPath: '/auth'
+      preLoaderRoute: typeof AuthRouteImport
       parentRoute: typeof rootRouteImport
     }
-    '/api/stream/episode': {
-      id: '/api/stream/episode'
-      path: '/api/stream/episode'
-      fullPath: '/api/stream/episode'
-      preLoaderRoute: typeof ApiStreamEpisodeRouteImport
+    '/_authenticated/console': {
+      id: '/_authenticated/console'
+      path: '/console'
+      fullPath: '/console'
+      preLoaderRoute: typeof AuthenticatedConsoleRouteImport
+      parentRoute: typeof AuthenticatedRouteRoute
+    }
+    '/api/public/hooks/engine-discover': {
+      id: '/api/public/hooks/engine-discover'
+      path: '/api/public/hooks/engine-discover'
+      fullPath: '/api/public/hooks/engine-discover'
+      preLoaderRoute: typeof ApiPublicHooksEngineDiscoverRouteImport
       parentRoute: typeof rootRouteImport
     }
-    '/api/stream/live': {
-      id: '/api/stream/live'
-      path: '/api/stream/live'
-      fullPath: '/api/stream/live'
-      preLoaderRoute: typeof ApiStreamLiveRouteImport
+    '/api/public/hooks/engine-epg': {
+      id: '/api/public/hooks/engine-epg'
+      path: '/api/public/hooks/engine-epg'
+      fullPath: '/api/public/hooks/engine-epg'
+      preLoaderRoute: typeof ApiPublicHooksEngineEpgRouteImport
       parentRoute: typeof rootRouteImport
     }
-    '/api/stream/movie': {
-      id: '/api/stream/movie'
-      path: '/api/stream/movie'
-      fullPath: '/api/stream/movie'
-      preLoaderRoute: typeof ApiStreamMovieRouteImport
+    '/api/public/hooks/engine-health': {
+      id: '/api/public/hooks/engine-health'
+      path: '/api/public/hooks/engine-health'
+      fullPath: '/api/public/hooks/engine-health'
+      preLoaderRoute: typeof ApiPublicHooksEngineHealthRouteImport
       parentRoute: typeof rootRouteImport
     }
-    '/api/public/hooks/auto-crawl': {
-      id: '/api/public/hooks/auto-crawl'
-      path: '/api/public/hooks/auto-crawl'
-      fullPath: '/api/public/hooks/auto-crawl'
-      preLoaderRoute: typeof ApiPublicHooksAutoCrawlRouteImport
+    '/api/public/hooks/engine-worker': {
+      id: '/api/public/hooks/engine-worker'
+      path: '/api/public/hooks/engine-worker'
+      fullPath: '/api/public/hooks/engine-worker'
+      preLoaderRoute: typeof ApiPublicHooksEngineWorkerRouteImport
       parentRoute: typeof rootRouteImport
     }
-    '/api/public/hooks/autonomous-discover': {
-      id: '/api/public/hooks/autonomous-discover'
-      path: '/api/public/hooks/autonomous-discover'
-      fullPath: '/api/public/hooks/autonomous-discover'
-      preLoaderRoute: typeof ApiPublicHooksAutonomousDiscoverRouteImport
+    '/api/public/v1/epg.xml': {
+      id: '/api/public/v1/epg.xml'
+      path: '/api/public/v1/epg.xml'
+      fullPath: '/api/public/v1/epg.xml'
+      preLoaderRoute: typeof ApiPublicV1EpgDotxmlRouteImport
       parentRoute: typeof rootRouteImport
     }
-    '/api/public/hooks/autonomous-health': {
-      id: '/api/public/hooks/autonomous-health'
-      path: '/api/public/hooks/autonomous-health'
-      fullPath: '/api/public/hooks/autonomous-health'
-      preLoaderRoute: typeof ApiPublicHooksAutonomousHealthRouteImport
+    '/api/public/v1/playlist.m3u': {
+      id: '/api/public/v1/playlist.m3u'
+      path: '/api/public/v1/playlist.m3u'
+      fullPath: '/api/public/v1/playlist.m3u'
+      preLoaderRoute: typeof ApiPublicV1PlaylistDotm3uRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/api/public/v1/streams': {
+      id: '/api/public/v1/streams'
+      path: '/api/public/v1/streams'
+      fullPath: '/api/public/v1/streams'
+      preLoaderRoute: typeof ApiPublicV1StreamsRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/api/public/v1/stream/$id': {
+      id: '/api/public/v1/stream/$id'
+      path: '/api/public/v1/stream/$id'
+      fullPath: '/api/public/v1/stream/$id'
+      preLoaderRoute: typeof ApiPublicV1StreamIdRouteImport
       parentRoute: typeof rootRouteImport
     }
   }
 }
 
+interface AuthenticatedRouteRouteChildren {
+  AuthenticatedConsoleRoute: typeof AuthenticatedConsoleRoute
+}
+
+const AuthenticatedRouteRouteChildren: AuthenticatedRouteRouteChildren = {
+  AuthenticatedConsoleRoute: AuthenticatedConsoleRoute,
+}
+
+const AuthenticatedRouteRouteWithChildren =
+  AuthenticatedRouteRoute._addFileChildren(AuthenticatedRouteRouteChildren)
+
 const rootRouteChildren: RootRouteChildren = {
   IndexRoute: IndexRoute,
-  HavuzRoute: HavuzRoute,
-  OtonomRoute: OtonomRoute,
-  ApiStreamEpisodeRoute: ApiStreamEpisodeRoute,
-  ApiStreamLiveRoute: ApiStreamLiveRoute,
-  ApiStreamMovieRoute: ApiStreamMovieRoute,
-  ApiPublicHooksAutoCrawlRoute: ApiPublicHooksAutoCrawlRoute,
-  ApiPublicHooksAutonomousDiscoverRoute: ApiPublicHooksAutonomousDiscoverRoute,
-  ApiPublicHooksAutonomousHealthRoute: ApiPublicHooksAutonomousHealthRoute,
+  AuthenticatedRouteRoute: AuthenticatedRouteRouteWithChildren,
+  AuthRoute: AuthRoute,
+  ApiPublicHooksEngineDiscoverRoute: ApiPublicHooksEngineDiscoverRoute,
+  ApiPublicHooksEngineEpgRoute: ApiPublicHooksEngineEpgRoute,
+  ApiPublicHooksEngineHealthRoute: ApiPublicHooksEngineHealthRoute,
+  ApiPublicHooksEngineWorkerRoute: ApiPublicHooksEngineWorkerRoute,
+  ApiPublicV1EpgDotxmlRoute: ApiPublicV1EpgDotxmlRoute,
+  ApiPublicV1PlaylistDotm3uRoute: ApiPublicV1PlaylistDotm3uRoute,
+  ApiPublicV1StreamsRoute: ApiPublicV1StreamsRoute,
+  ApiPublicV1StreamIdRoute: ApiPublicV1StreamIdRoute,
 }
 export const routeTree = rootRouteImport
   ._addFileChildren(rootRouteChildren)
