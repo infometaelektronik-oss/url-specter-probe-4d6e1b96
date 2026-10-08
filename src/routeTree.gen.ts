@@ -18,6 +18,8 @@ import { Route as ApiStreamMovieRouteImport } from './routes/api/stream/movie'
 import { Route as ApiPublicHooksAutoCrawlRouteImport } from './routes/api/public/hooks/auto-crawl'
 import { Route as ApiPublicHooksAutonomousDiscoverRouteImport } from './routes/api/public/hooks/autonomous-discover'
 import { Route as ApiPublicHooksAutonomousHealthRouteImport } from './routes/api/public/hooks/autonomous-health'
+import { Route as ApiPublicV1PlaylistDotm3uRouteImport } from './routes/api/public/v1/playlist[.]m3u'
+import { Route as ApiPublicV1StreamsRouteImport } from './routes/api/public/v1/streams'
 
 const IndexRoute = IndexRouteImport.update({
   id: '/',
@@ -66,6 +68,17 @@ const ApiPublicHooksAutonomousHealthRoute =
     path: '/api/public/hooks/autonomous-health',
     getParentRoute: () => rootRouteImport,
   } as any)
+const ApiPublicV1PlaylistDotm3uRoute =
+  ApiPublicV1PlaylistDotm3uRouteImport.update({
+    id: '/api/public/v1/playlist.m3u',
+    path: '/api/public/v1/playlist.m3u',
+    getParentRoute: () => rootRouteImport,
+  } as any)
+const ApiPublicV1StreamsRoute = ApiPublicV1StreamsRouteImport.update({
+  id: '/api/public/v1/streams',
+  path: '/api/public/v1/streams',
+  getParentRoute: () => rootRouteImport,
+} as any)
 
 export interface FileRoutesByFullPath {
   '/': typeof IndexRoute
@@ -77,6 +90,8 @@ export interface FileRoutesByFullPath {
   '/api/public/hooks/auto-crawl': typeof ApiPublicHooksAutoCrawlRoute
   '/api/public/hooks/autonomous-discover': typeof ApiPublicHooksAutonomousDiscoverRoute
   '/api/public/hooks/autonomous-health': typeof ApiPublicHooksAutonomousHealthRoute
+  '/api/public/v1/playlist.m3u': typeof ApiPublicV1PlaylistDotm3uRoute
+  '/api/public/v1/streams': typeof ApiPublicV1StreamsRoute
 }
 export interface FileRoutesByTo {
   '/': typeof IndexRoute
@@ -88,6 +103,8 @@ export interface FileRoutesByTo {
   '/api/public/hooks/auto-crawl': typeof ApiPublicHooksAutoCrawlRoute
   '/api/public/hooks/autonomous-discover': typeof ApiPublicHooksAutonomousDiscoverRoute
   '/api/public/hooks/autonomous-health': typeof ApiPublicHooksAutonomousHealthRoute
+  '/api/public/v1/playlist.m3u': typeof ApiPublicV1PlaylistDotm3uRoute
+  '/api/public/v1/streams': typeof ApiPublicV1StreamsRoute
 }
 export interface FileRoutesById {
   __root__: typeof rootRouteImport
@@ -100,6 +117,8 @@ export interface FileRoutesById {
   '/api/public/hooks/auto-crawl': typeof ApiPublicHooksAutoCrawlRoute
   '/api/public/hooks/autonomous-discover': typeof ApiPublicHooksAutonomousDiscoverRoute
   '/api/public/hooks/autonomous-health': typeof ApiPublicHooksAutonomousHealthRoute
+  '/api/public/v1/playlist.m3u': typeof ApiPublicV1PlaylistDotm3uRoute
+  '/api/public/v1/streams': typeof ApiPublicV1StreamsRoute
 }
 export interface FileRouteTypes {
   fileRoutesByFullPath: FileRoutesByFullPath
@@ -113,6 +132,8 @@ export interface FileRouteTypes {
     | '/api/public/hooks/auto-crawl'
     | '/api/public/hooks/autonomous-discover'
     | '/api/public/hooks/autonomous-health'
+    | '/api/public/v1/playlist.m3u'
+    | '/api/public/v1/streams'
   fileRoutesByTo: FileRoutesByTo
   to:
     | '/'
@@ -124,6 +145,8 @@ export interface FileRouteTypes {
     | '/api/public/hooks/auto-crawl'
     | '/api/public/hooks/autonomous-discover'
     | '/api/public/hooks/autonomous-health'
+    | '/api/public/v1/playlist.m3u'
+    | '/api/public/v1/streams'
   id:
     | '__root__'
     | '/'
@@ -135,6 +158,8 @@ export interface FileRouteTypes {
     | '/api/public/hooks/auto-crawl'
     | '/api/public/hooks/autonomous-discover'
     | '/api/public/hooks/autonomous-health'
+    | '/api/public/v1/playlist.m3u'
+    | '/api/public/v1/streams'
   fileRoutesById: FileRoutesById
 }
 export interface RootRouteChildren {
@@ -147,6 +172,8 @@ export interface RootRouteChildren {
   ApiPublicHooksAutoCrawlRoute: typeof ApiPublicHooksAutoCrawlRoute
   ApiPublicHooksAutonomousDiscoverRoute: typeof ApiPublicHooksAutonomousDiscoverRoute
   ApiPublicHooksAutonomousHealthRoute: typeof ApiPublicHooksAutonomousHealthRoute
+  ApiPublicV1PlaylistDotm3uRoute: typeof ApiPublicV1PlaylistDotm3uRoute
+  ApiPublicV1StreamsRoute: typeof ApiPublicV1StreamsRoute
 }
 
 declare module '@tanstack/react-router' {
@@ -214,6 +241,20 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof ApiPublicHooksAutonomousHealthRouteImport
       parentRoute: typeof rootRouteImport
     }
+    '/api/public/v1/playlist.m3u': {
+      id: '/api/public/v1/playlist.m3u'
+      path: '/api/public/v1/playlist.m3u'
+      fullPath: '/api/public/v1/playlist.m3u'
+      preLoaderRoute: typeof ApiPublicV1PlaylistDotm3uRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/api/public/v1/streams': {
+      id: '/api/public/v1/streams'
+      path: '/api/public/v1/streams'
+      fullPath: '/api/public/v1/streams'
+      preLoaderRoute: typeof ApiPublicV1StreamsRouteImport
+      parentRoute: typeof rootRouteImport
+    }
   }
 }
 
@@ -227,6 +268,8 @@ const rootRouteChildren: RootRouteChildren = {
   ApiPublicHooksAutoCrawlRoute: ApiPublicHooksAutoCrawlRoute,
   ApiPublicHooksAutonomousDiscoverRoute: ApiPublicHooksAutonomousDiscoverRoute,
   ApiPublicHooksAutonomousHealthRoute: ApiPublicHooksAutonomousHealthRoute,
+  ApiPublicV1PlaylistDotm3uRoute: ApiPublicV1PlaylistDotm3uRoute,
+  ApiPublicV1StreamsRoute: ApiPublicV1StreamsRoute,
 }
 export const routeTree = rootRouteImport
   ._addFileChildren(rootRouteChildren)

@@ -19,7 +19,7 @@ export const Route = createFileRoute("/api/public/v1/playlist.m3u")({
         const proxied = url.searchParams.get("proxied") === "1";
         const apiKey = request.headers.get("x-api-key") ?? url.searchParams.get("key") ?? "";
 
-        const { body, contentType } = await cached(`m3u:${type}:${quality ?? ""}:${proxied}`, 60, async () => {
+        const { body, contentType } = await cached(`m3u:${type}:${quality ?? ""}:${proxied ? auth.clientId : "raw"}`, 60, async () => {
           const { supabaseAdmin } = await import("@/integrations/supabase/client.server");
           const { normKey } = await import("@/lib/scraper/epg.server");
           let q = supabaseAdmin
