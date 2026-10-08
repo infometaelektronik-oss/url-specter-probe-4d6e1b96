@@ -62,3 +62,69 @@ export function guessType(hay: string): "live_tv" | "movie" | "series" | "radio"
   if (/film|movie|sinema/.test(s)) return "movie";
   return "live_tv";
 }
+
+// --- Heuristic deep extraction -------------------------------------------------
+export const SCRIPT_SRC_RE = /<script[^>]+src=["']([^"']+)["']/gi;
+// player config keys: file:"...", source:'...', "src":"...", hls:"..."
+export const CONFIG_URL_RE =
+  /["'](?:file|source|src|hls|url|stream|playlist|manifest)["']\s*:\s*["']([^"']{8,})["']/gi;
+export const B64_RE = /["']([A-Za-z0-9+/]{40,}={0,2})["']/g;
+
+export function extractScripts(html: string, base: string): string[] {
+  const out: string[] = [];
+  let m: RegExpExecArray | null;
+  const rx = new RegExp(SCRIPT_SRC_RE.source, "gi");
+  while ((m = rx.exec(html))) {
+    try {
+      out.push(new URL(m[1], base).toString());
+    } catch {
+      /* ignore */
+    }
+  }
+  return Array.from(new Set(out));
+}
+
+function unescapeUrls(text: string) {
+  return text.replace(/\\\//g, "/").replace(/\\u002[fF]/g, "/").replace(/&amp;/g, "&");
+}
+
+/** Deep scan: raw regex + unescaped text + player config keys + base64 payloads. */
+export function deepExtract(text: string, base?: string): string[] {
+  const found = new Set<string>();
+  const add = (u: string) => {
+    const clean = u.replace(/[.,;)\]}'"]+$/, "");
+    if (/^https?:\/\//i.test(clean)) found.add(clean);
+    else if (base && clean.startsWith("/")) {
+      try {
+        found.add(new URL(clean, base).toString());
+      } catch {
+        /* ignore */
+      }
+    }
+  };
+
+  const un = unescapeUrls(text);
+  for (const t of [text, un]) extractStreamUrls(t).forEach(add);
+
+  let m: RegExpExecArray | null;
+  const cfg = new RegExp(CONFIG_URL_RE.source, "gi");
+  while ((m = cfg.exec(un))) {
+    const v = m[1];
+    if (/\.(m3u8|mp4|ts|mpd|mkv|mp3)(\?|$)/i.test(v)) add(v);
+  }
+
+  const b64 = new RegExp(B64_RE.source, "g");
+  let b: RegExpExecArray | null;
+  let decodes = 0;
+  while ((b = b64.exec(text)) && decodes < 40) {
+    decodes++;
+    try {
+      const dec = atob(b[1]);
+      if (/\.(m3u8|mp4|mpd)/i.test(dec)) extractStreamUrls(unescapeUrls(dec)).forEach(add);
+    } catch {
+      /* not base64 */
+    }
+  }
+
+  return Array.from(found);
+}
