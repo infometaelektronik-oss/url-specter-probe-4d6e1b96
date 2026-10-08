@@ -1,6 +1,6 @@
 // Madde 1-4: Otonom keşif (DuckDuckGo HTML + GitHub search API + Pastebin trend).
 // Google/Yandex/Bing bloklu (bot koruması + terms). DuckDuckGo HTML endpoint açık.
-import { safeFetch } from "./user-agents";
+import { smartFetch as safeFetch } from "./fetch.server";
 
 const DDG_ENDPOINT = "https://html.duckduckgo.com/html/";
 
