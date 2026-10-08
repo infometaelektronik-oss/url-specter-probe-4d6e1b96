@@ -10,6 +10,9 @@
 
 import { Route as rootRouteImport } from './routes/__root'
 import { Route as IndexRouteImport } from './routes/index'
+import { Route as AuthenticatedRouteRouteImport } from './routes/_authenticated/route'
+import { Route as AuthRouteImport } from './routes/auth'
+import { Route as AuthenticatedConsoleRouteImport } from './routes/_authenticated/console'
 import { Route as ApiPublicHooksEngineDiscoverRouteImport } from './routes/api/public/hooks/engine-discover'
 import { Route as ApiPublicHooksEngineEpgRouteImport } from './routes/api/public/hooks/engine-epg'
 import { Route as ApiPublicHooksEngineHealthRouteImport } from './routes/api/public/hooks/engine-health'
@@ -23,6 +26,20 @@ const IndexRoute = IndexRouteImport.update({
   id: '/',
   path: '/',
   getParentRoute: () => rootRouteImport,
+} as any)
+const AuthenticatedRouteRoute = AuthenticatedRouteRouteImport.update({
+  id: '/_authenticated',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const AuthRoute = AuthRouteImport.update({
+  id: '/auth',
+  path: '/auth',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const AuthenticatedConsoleRoute = AuthenticatedConsoleRouteImport.update({
+  id: '/console',
+  path: '/console',
+  getParentRoute: () => AuthenticatedRouteRoute,
 } as any)
 const ApiPublicHooksEngineDiscoverRoute =
   ApiPublicHooksEngineDiscoverRouteImport.update({
@@ -71,6 +88,8 @@ const ApiPublicV1StreamIdRoute = ApiPublicV1StreamIdRouteImport.update({
 
 export interface FileRoutesByFullPath {
   '/': typeof IndexRoute
+  '/auth': typeof AuthRoute
+  '/console': typeof AuthenticatedConsoleRoute
   '/api/public/hooks/engine-discover': typeof ApiPublicHooksEngineDiscoverRoute
   '/api/public/hooks/engine-epg': typeof ApiPublicHooksEngineEpgRoute
   '/api/public/hooks/engine-health': typeof ApiPublicHooksEngineHealthRoute
@@ -82,6 +101,8 @@ export interface FileRoutesByFullPath {
 }
 export interface FileRoutesByTo {
   '/': typeof IndexRoute
+  '/auth': typeof AuthRoute
+  '/console': typeof AuthenticatedConsoleRoute
   '/api/public/hooks/engine-discover': typeof ApiPublicHooksEngineDiscoverRoute
   '/api/public/hooks/engine-epg': typeof ApiPublicHooksEngineEpgRoute
   '/api/public/hooks/engine-health': typeof ApiPublicHooksEngineHealthRoute
@@ -94,6 +115,9 @@ export interface FileRoutesByTo {
 export interface FileRoutesById {
   __root__: typeof rootRouteImport
   '/': typeof IndexRoute
+  '/_authenticated': typeof AuthenticatedRouteRouteWithChildren
+  '/auth': typeof AuthRoute
+  '/_authenticated/console': typeof AuthenticatedConsoleRoute
   '/api/public/hooks/engine-discover': typeof ApiPublicHooksEngineDiscoverRoute
   '/api/public/hooks/engine-epg': typeof ApiPublicHooksEngineEpgRoute
   '/api/public/hooks/engine-health': typeof ApiPublicHooksEngineHealthRoute
@@ -107,6 +131,8 @@ export interface FileRouteTypes {
   fileRoutesByFullPath: FileRoutesByFullPath
   fullPaths:
     | '/'
+    | '/auth'
+    | '/console'
     | '/api/public/hooks/engine-discover'
     | '/api/public/hooks/engine-epg'
     | '/api/public/hooks/engine-health'
@@ -118,6 +144,8 @@ export interface FileRouteTypes {
   fileRoutesByTo: FileRoutesByTo
   to:
     | '/'
+    | '/auth'
+    | '/console'
     | '/api/public/hooks/engine-discover'
     | '/api/public/hooks/engine-epg'
     | '/api/public/hooks/engine-health'
@@ -129,6 +157,9 @@ export interface FileRouteTypes {
   id:
     | '__root__'
     | '/'
+    | '/_authenticated'
+    | '/auth'
+    | '/_authenticated/console'
     | '/api/public/hooks/engine-discover'
     | '/api/public/hooks/engine-epg'
     | '/api/public/hooks/engine-health'
@@ -141,6 +172,8 @@ export interface FileRouteTypes {
 }
 export interface RootRouteChildren {
   IndexRoute: typeof IndexRoute
+  AuthenticatedRouteRoute: typeof AuthenticatedRouteRouteWithChildren
+  AuthRoute: typeof AuthRoute
   ApiPublicHooksEngineDiscoverRoute: typeof ApiPublicHooksEngineDiscoverRoute
   ApiPublicHooksEngineEpgRoute: typeof ApiPublicHooksEngineEpgRoute
   ApiPublicHooksEngineHealthRoute: typeof ApiPublicHooksEngineHealthRoute
@@ -159,6 +192,27 @@ declare module '@tanstack/react-router' {
       fullPath: '/'
       preLoaderRoute: typeof IndexRouteImport
       parentRoute: typeof rootRouteImport
+    }
+    '/_authenticated': {
+      id: '/_authenticated'
+      path: ''
+      fullPath: '/'
+      preLoaderRoute: typeof AuthenticatedRouteRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/auth': {
+      id: '/auth'
+      path: '/auth'
+      fullPath: '/auth'
+      preLoaderRoute: typeof AuthRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/_authenticated/console': {
+      id: '/_authenticated/console'
+      path: '/console'
+      fullPath: '/console'
+      preLoaderRoute: typeof AuthenticatedConsoleRouteImport
+      parentRoute: typeof AuthenticatedRouteRoute
     }
     '/api/public/hooks/engine-discover': {
       id: '/api/public/hooks/engine-discover'
@@ -219,8 +273,21 @@ declare module '@tanstack/react-router' {
   }
 }
 
+interface AuthenticatedRouteRouteChildren {
+  AuthenticatedConsoleRoute: typeof AuthenticatedConsoleRoute
+}
+
+const AuthenticatedRouteRouteChildren: AuthenticatedRouteRouteChildren = {
+  AuthenticatedConsoleRoute: AuthenticatedConsoleRoute,
+}
+
+const AuthenticatedRouteRouteWithChildren =
+  AuthenticatedRouteRoute._addFileChildren(AuthenticatedRouteRouteChildren)
+
 const rootRouteChildren: RootRouteChildren = {
   IndexRoute: IndexRoute,
+  AuthenticatedRouteRoute: AuthenticatedRouteRouteWithChildren,
+  AuthRoute: AuthRoute,
   ApiPublicHooksEngineDiscoverRoute: ApiPublicHooksEngineDiscoverRoute,
   ApiPublicHooksEngineEpgRoute: ApiPublicHooksEngineEpgRoute,
   ApiPublicHooksEngineHealthRoute: ApiPublicHooksEngineHealthRoute,
