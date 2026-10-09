@@ -58,10 +58,22 @@ export async function runDiscovery(opts: { manual?: boolean } = {}): Promise<Dis
     (await scanPastebinTrends()).forEach((p) => candidates.add(p));
   } catch { /* ignore */ }
 
-  const rows = Array.from(candidates).slice(0, 200).map((url) => ({ url, depth: 0 }));
-  if (rows.length) {
-    const { data: ins } = await supabaseAdmin.from("crawl_jobs").upsert(rows as never, { onConflict: "url", ignoreDuplicates: true }).select("id");
-    summary.enqueued = ins?.length ?? rows.length;
+  // Always-available public playlist seeds (search engines often block worker IPs)
+  for (const c of ["tr", "us", "uk", "de", "fr", "az"]) candidates.add(`https://iptv-org.github.io/iptv/countries/${c}.m3u`);
+  for (const c of ["news", "sports", "movies", "music", "kids", "entertainment"]) candidates.add(`https://iptv-org.github.io/iptv/categories/${c}.m3u`);
+
+  // crawl_jobs only has a partial unique index, so dedupe manually instead of upsert.
+  const urls = Array.from(candidates).slice(0, 200);
+  if (urls.length) {
+    const since = new Date(Date.now() - 6 * 3600000).toISOString();
+    const { data: seen } = await supabaseAdmin.from("crawl_jobs").select("url").in("url", urls).or(`status.in.(queued,running),created_at.gte.${since}`);
+    const skip = new Set((seen ?? []).map((r) => r.url));
+    const rows = urls.filter((u) => !skip.has(u)).map((url) => ({ url, depth: 0 }));
+    if (rows.length) {
+      const { data: ins, error } = await supabaseAdmin.from("crawl_jobs").insert(rows).select("id");
+      if (error) push({ level: "error", phase: "discover", message: `Kuyruğa yazılamadı: ${error.message}` });
+      summary.enqueued = ins?.length ?? 0;
+    }
   }
   push({ level: "ok", phase: "discover", message: `${summary.enqueued} yeni görev kuyruğa alındı` });
   await log(buffer);
@@ -114,7 +126,7 @@ export async function runWorker(opts: { batch?: number } = {}): Promise<WorkerSu
         });
       }
 
-      const unique = Array.from(streams).slice(0, 12);
+      const unique = Array.from(streams).slice(0, /\.m3u($|\?)/i.test(job.url) ? 40 : 12);
       s.candidates += unique.length;
       const title = res.text.match(TITLE_RE)?.[1] ?? "";
       const desc = res.text.match(META_DESC_RE)?.[1] ?? "";
@@ -191,7 +203,7 @@ export async function runHealthCheck(): Promise<HealthSummary> {
     .from("autonomous_streams")
     .select("id, title, stream_url, failure_count, status, choicely_id, source_website, geo_country")
     .order("last_checked_at", { ascending: true, nullsFirst: true })
-    .limit(90);
+    .limit(36);
   const buffer: LogRow[] = [{ level: "info", phase: "health", message: `Sağlık taraması: ${rows?.length ?? 0} akış` }];
   const dead: string[] = [];
 
