@@ -4,7 +4,7 @@ import { useServerFn } from "@tanstack/react-start";
 import { useEffect, useState } from "react";
 import { toast } from "sonner";
 import {
-  Activity, Boxes, Globe2, KeyRound, LogOut, Play, RefreshCw, Radio, Rss, Shield,
+  Activity, Boxes, Globe2, Loader2, KeyRound, LogOut, Play, RefreshCw, Radio, Rss, Shield,
   Trash2, Waves, Webhook,
 } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
@@ -51,8 +51,8 @@ function Card({ title, children, right }: { title?: string; children: React.Reac
 }
 
 const inputCls = "w-full rounded-lg border border-input bg-input px-3 py-2 text-sm outline-none focus:border-primary";
-const btnCls = "inline-flex items-center gap-2 rounded-lg bg-primary px-3 py-2 text-sm font-semibold text-primary-foreground transition hover:opacity-90 disabled:opacity-50";
-const ghostCls = "inline-flex items-center gap-2 rounded-lg border border-border px-3 py-2 text-sm transition hover:bg-muted";
+const btnCls = "inline-flex items-center gap-2 rounded-lg bg-primary px-3 py-2 text-sm font-semibold text-primary-foreground transition hover:brightness-110 active:scale-[0.97] disabled:cursor-not-allowed disabled:opacity-50 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring";
+const ghostCls = "inline-flex items-center gap-2 rounded-lg border border-border px-3 py-2 text-sm transition hover:border-primary/60 hover:bg-muted active:scale-[0.97] disabled:cursor-not-allowed disabled:opacity-50 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring";
 
 function Console() {
   const qc = useQueryClient();
@@ -113,13 +113,19 @@ function Console() {
 
       <main className="mx-auto max-w-7xl space-y-5 px-4 py-6">
         <div className="flex flex-wrap gap-2">
-          <button className={btnCls} disabled={run.isPending} onClick={() => run.mutate("discover")}><Play className="h-4 w-4" /> Keşfet</button>
-          <button className={ghostCls} disabled={run.isPending} onClick={() => run.mutate("worker")}><Boxes className="h-4 w-4" /> Kuyruğu işle</button>
-          <button className={ghostCls} disabled={run.isPending} onClick={() => run.mutate("health")}><Activity className="h-4 w-4" /> Sağlık taraması</button>
-          <button className={ghostCls} disabled={run.isPending} onClick={() => run.mutate("epg")}><Rss className="h-4 w-4" /> EPG senkronu</button>
-          <button className={ghostCls} onClick={() => qc.invalidateQueries()}><RefreshCw className="h-4 w-4" /> Yenile</button>
+          <button className={btnCls} disabled={run.isPending} onClick={() => run.mutate("discover")}>{run.isPending && run.variables === "discover" ? <Loader2 className="h-4 w-4 animate-spin" /> : <Play className="h-4 w-4" />} Keşfet</button>
+          <button className={ghostCls} disabled={run.isPending} onClick={() => run.mutate("worker")}>{run.isPending && run.variables === "worker" ? <Loader2 className="h-4 w-4 animate-spin" /> : <Boxes className="h-4 w-4" />} Kuyruğu işle</button>
+          <button className={ghostCls} disabled={run.isPending} onClick={() => run.mutate("health")}>{run.isPending && run.variables === "health" ? <Loader2 className="h-4 w-4 animate-spin" /> : <Activity className="h-4 w-4" />} Sağlık taraması</button>
+          <button className={ghostCls} disabled={run.isPending} onClick={() => run.mutate("epg")}>{run.isPending && run.variables === "epg" ? <Loader2 className="h-4 w-4 animate-spin" /> : <Rss className="h-4 w-4" />} EPG senkronu</button>
+          <button className={ghostCls} disabled={overview.isFetching} onClick={() => qc.invalidateQueries()}><RefreshCw className={`h-4 w-4 ${overview.isFetching ? "animate-spin" : ""}`} /> Yenile</button>
         </div>
 
+        {(overview.error || resources.error) && (
+          <div className="rounded-xl border border-destructive/50 bg-destructive/10 p-4 text-sm">
+            <b className="text-destructive">Veriler alınamadı:</b> {(overview.error ?? resources.error)?.message}
+            <button className={ghostCls + " ml-3"} onClick={() => { void overview.refetch(); void resources.refetch(); }}>Tekrar dene</button>
+          </div>
+        )}
         {tab === "overview" && <Overview data={overview.data} />}
         {tab === "streams" && <Streams />}
         {tab === "discovery" && <Discovery data={resources.data} />}
@@ -278,7 +284,7 @@ function Discovery({ data }: { data?: Resources }) {
           <option value="duckduckgo">DuckDuckGo</option><option value="github">GitHub</option>
         </select>
         <input className={inputCls + " flex-1 min-w-48"} placeholder='örn: intitle:"index of" .m3u8' value={query} onChange={(e) => setQuery(e.target.value)} />
-        <button className={btnCls} disabled={!query || add.isPending} onClick={() => add.mutate()}>Ekle</button>
+        <button className={btnCls} disabled={!query || add.isPending} onClick={() =>{add.isPending && <Loader2 className="h-4 w-4 animate-spin" />} add.mutate()}>Ekle</button>
       </div>
       <div className="max-h-[28rem] space-y-1 overflow-auto">
         {(data?.queries ?? []).map((q) => (
@@ -318,7 +324,7 @@ function ApiTab({ data }: { data?: Resources }) {
           <input className={inputCls} placeholder="İstemci adı (örn. Ana IPTV paneli)" value={name} onChange={(e) => setName(e.target.value)} />
           <input className={inputCls} placeholder="İzinli IP'ler (virgülle, boş = hepsi)" value={ips} onChange={(e) => setIps(e.target.value)} />
           <input className={inputCls} type="number" min={1} value={rate} onChange={(e) => setRate(Number(e.target.value))} placeholder="Dakikalık istek limiti" />
-          <button className={btnCls} disabled={!name || create.isPending} onClick={() => create.mutate()}><KeyRound className="h-4 w-4" /> Anahtar üret</button>
+          <button className={btnCls} disabled={!name || create.isPending} onClick={() =>{create.isPending && <Loader2 className="h-4 w-4 animate-spin" />} create.mutate()}><KeyRound className="h-4 w-4" /> Anahtar üret</button>
         </div>
         {newKey && (
           <div className="mt-4 rounded-lg border border-primary/40 bg-primary/10 p-3">
@@ -391,7 +397,7 @@ function Network({ data }: { data?: Resources }) {
           <input className={inputCls} placeholder="Etiket" value={label} onChange={(e) => setLabel(e.target.value)} />
           <input className={inputCls} placeholder="https://… {url}" value={template} onChange={(e) => setTemplate(e.target.value)} />
           <input className={inputCls} placeholder="Ülke kodu (TR, DE…) — opsiyonel" maxLength={2} value={country} onChange={(e) => setCountry(e.target.value.toUpperCase())} />
-          <button className={btnCls} disabled={!label || !template || add.isPending} onClick={() => add.mutate()}>Ekle</button>
+          <button className={btnCls} disabled={!label || !template || add.isPending} onClick={() =>{add.isPending && <Loader2 className="h-4 w-4 animate-spin" />} add.mutate()}>Ekle</button>
         </div>
         <div className="mt-5 space-y-1">
           {(data?.proxies ?? []).map((p) => (
@@ -443,7 +449,7 @@ function Integrations({ data }: { data?: Resources }) {
 
   return (
     <div className="grid gap-5 lg:grid-cols-2">
-      <Card title="Anlık bildirimler" right={<button className={ghostCls} onClick={() => test.mutate()}>Test et</button>}>
+      <Card title="Anlık bildirimler" right={<button className={ghostCls} disabled={test.isPending} onClick={() => test.mutate()}>{test.isPending && <Loader2 className="h-4 w-4 animate-spin" />}Test et</button>}>
         <div className="space-y-3">
           <input className={inputCls} placeholder="Ad" value={w.name} onChange={(e) => setW({ ...w, name: e.target.value })} />
           <select className={inputCls} value={w.kind} onChange={(e) => setW({ ...w, kind: e.target.value })}>
@@ -451,7 +457,7 @@ function Integrations({ data }: { data?: Resources }) {
           </select>
           <input className={inputCls} placeholder={w.kind === "telegram" ? "Bot token" : "Webhook adresi"} value={w.url} onChange={(e) => setW({ ...w, url: e.target.value })} />
           {w.kind === "telegram" && <input className={inputCls} placeholder="Sohbet ID" value={w.chatId} onChange={(e) => setW({ ...w, chatId: e.target.value })} />}
-          <button className={btnCls} disabled={!w.name || !w.url || addHook.isPending} onClick={() => addHook.mutate()}>Ekle</button>
+          <button className={btnCls} disabled={!w.name || !w.url || addHook.isPending} onClick={() =>{addHook.isPending && <Loader2 className="h-4 w-4 animate-spin" />} addHook.mutate()}>Ekle</button>
         </div>
         <div className="mt-5 space-y-1">
           {(data?.webhooks ?? []).map((h) => (
@@ -468,7 +474,7 @@ function Integrations({ data }: { data?: Resources }) {
       <Card title="EPG kaynakları">
         <div className="flex gap-2">
           <input className={inputCls} placeholder="https://… xmltv.xml" value={epgUrl} onChange={(e) => setEpgUrl(e.target.value)} />
-          <button className={btnCls} disabled={!epgUrl || addEpg.isPending} onClick={() => addEpg.mutate()}>Ekle</button>
+          <button className={btnCls} disabled={!epgUrl || addEpg.isPending} onClick={() =>{addEpg.isPending && <Loader2 className="h-4 w-4 animate-spin" />} addEpg.mutate()}>Ekle</button>
         </div>
         <div className="mt-5 space-y-1">
           {(data?.epg ?? []).map((s) => (
