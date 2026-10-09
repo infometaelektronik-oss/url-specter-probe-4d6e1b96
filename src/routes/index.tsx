@@ -26,7 +26,7 @@ function Landing() {
     <main className="dot-grid min-h-screen">
       <div className="mx-auto flex min-h-screen max-w-5xl flex-col justify-center px-6 py-16">
         <div className="mb-3 inline-flex w-fit items-center gap-2 rounded-full border border-border px-3 py-1 font-mono text-xs text-muted-foreground">
-          <span className="h-2 w-2 animate-pulse rounded-full bg-primary" /> engine online
+          <span className="h-2 w-2 rounded-full bg-primary" /> otonom akış motoru
         </div>
         <h1 className="text-5xl font-bold tracking-tight md:text-7xl">
           Core Stream <span className="text-gradient">Engine</span>
