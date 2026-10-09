@@ -284,7 +284,7 @@ function Discovery({ data }: { data?: Resources }) {
           <option value="duckduckgo">DuckDuckGo</option><option value="github">GitHub</option>
         </select>
         <input className={inputCls + " flex-1 min-w-48"} placeholder='örn: intitle:"index of" .m3u8' value={query} onChange={(e) => setQuery(e.target.value)} />
-        <button className={btnCls} disabled={!query || add.isPending} onClick={() =>{add.isPending && <Loader2 className="h-4 w-4 animate-spin" />} add.mutate()}>Ekle</button>
+        <button className={btnCls} disabled={!query || add.isPending} onClick={() => add.mutate()}>{add.isPending && <Loader2 className="h-4 w-4 animate-spin" />}Ekle</button>
       </div>
       <div className="max-h-[28rem] space-y-1 overflow-auto">
         {(data?.queries ?? []).map((q) => (
@@ -324,7 +324,7 @@ function ApiTab({ data }: { data?: Resources }) {
           <input className={inputCls} placeholder="İstemci adı (örn. Ana IPTV paneli)" value={name} onChange={(e) => setName(e.target.value)} />
           <input className={inputCls} placeholder="İzinli IP'ler (virgülle, boş = hepsi)" value={ips} onChange={(e) => setIps(e.target.value)} />
           <input className={inputCls} type="number" min={1} value={rate} onChange={(e) => setRate(Number(e.target.value))} placeholder="Dakikalık istek limiti" />
-          <button className={btnCls} disabled={!name || create.isPending} onClick={() =>{create.isPending && <Loader2 className="h-4 w-4 animate-spin" />} create.mutate()}><KeyRound className="h-4 w-4" /> Anahtar üret</button>
+          <button className={btnCls} disabled={!name || create.isPending} onClick={() => create.mutate()}>{create.isPending && <Loader2 className="h-4 w-4 animate-spin" />}<KeyRound className="h-4 w-4" /> Anahtar üret</button>
         </div>
         {newKey && (
           <div className="mt-4 rounded-lg border border-primary/40 bg-primary/10 p-3">
@@ -397,7 +397,7 @@ function Network({ data }: { data?: Resources }) {
           <input className={inputCls} placeholder="Etiket" value={label} onChange={(e) => setLabel(e.target.value)} />
           <input className={inputCls} placeholder="https://… {url}" value={template} onChange={(e) => setTemplate(e.target.value)} />
           <input className={inputCls} placeholder="Ülke kodu (TR, DE…) — opsiyonel" maxLength={2} value={country} onChange={(e) => setCountry(e.target.value.toUpperCase())} />
-          <button className={btnCls} disabled={!label || !template || add.isPending} onClick={() =>{add.isPending && <Loader2 className="h-4 w-4 animate-spin" />} add.mutate()}>Ekle</button>
+          <button className={btnCls} disabled={!label || !template || add.isPending} onClick={() => add.mutate()}>{add.isPending && <Loader2 className="h-4 w-4 animate-spin" />}Ekle</button>
         </div>
         <div className="mt-5 space-y-1">
           {(data?.proxies ?? []).map((p) => (
@@ -457,7 +457,7 @@ function Integrations({ data }: { data?: Resources }) {
           </select>
           <input className={inputCls} placeholder={w.kind === "telegram" ? "Bot token" : "Webhook adresi"} value={w.url} onChange={(e) => setW({ ...w, url: e.target.value })} />
           {w.kind === "telegram" && <input className={inputCls} placeholder="Sohbet ID" value={w.chatId} onChange={(e) => setW({ ...w, chatId: e.target.value })} />}
-          <button className={btnCls} disabled={!w.name || !w.url || addHook.isPending} onClick={() =>{addHook.isPending && <Loader2 className="h-4 w-4 animate-spin" />} addHook.mutate()}>Ekle</button>
+          <button className={btnCls} disabled={!w.name || !w.url || addHook.isPending} onClick={() => addHook.mutate()}>{addHook.isPending && <Loader2 className="h-4 w-4 animate-spin" />}Ekle</button>
         </div>
         <div className="mt-5 space-y-1">
           {(data?.webhooks ?? []).map((h) => (
@@ -474,7 +474,7 @@ function Integrations({ data }: { data?: Resources }) {
       <Card title="EPG kaynakları">
         <div className="flex gap-2">
           <input className={inputCls} placeholder="https://… xmltv.xml" value={epgUrl} onChange={(e) => setEpgUrl(e.target.value)} />
-          <button className={btnCls} disabled={!epgUrl || addEpg.isPending} onClick={() =>{addEpg.isPending && <Loader2 className="h-4 w-4 animate-spin" />} addEpg.mutate()}>Ekle</button>
+          <button className={btnCls} disabled={!epgUrl || addEpg.isPending} onClick={() => addEpg.mutate()}>{addEpg.isPending && <Loader2 className="h-4 w-4 animate-spin" />}Ekle</button>
         </div>
         <div className="mt-5 space-y-1">
           {(data?.epg ?? []).map((s) => (
