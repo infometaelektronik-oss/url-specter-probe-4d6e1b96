@@ -1,7 +1,10 @@
 // Core engine: discover -> enqueue -> parallel workers -> deep extract -> validate -> classify -> store -> feed.
 import { supabaseAdmin } from "@/integrations/supabase/client.server";
 import { pushToChoicely, deactivateOnChoicely } from "./choicely.server";
-import { searchDuckDuckGo, searchGitHub, scanPastebinTrends } from "./discovery.server";
+import {
+  searchDuckDuckGo, searchGitHub, scanPastebinTrends, searchMojeek, searchGitHubRepos,
+  SEED_PLAYLISTS, GITHUB_REPO_QUERIES, fetchIptvOrgIndex,
+} from "./discovery.server";
 import { smartFetch, pooled, telemetry } from "./fetch.server";
 import { classifyContent } from "./nlp.server";
 import { normKey } from "./epg.server";
@@ -44,12 +47,18 @@ export async function runDiscovery(opts: { manual?: boolean } = {}): Promise<Dis
 
   await pooled(list, CONCURRENCY, async (q) => {
     let hits: string[] = [];
+    let via = q.engine;
     try {
-      if (q.engine === "duckduckgo") hits = await searchDuckDuckGo(q.query, 15);
-      else if (q.engine === "github") hits = await searchGitHub(q.query, 10);
+      if (q.engine === "duckduckgo") {
+        hits = await searchDuckDuckGo(q.query, 15);
+        if (!hits.length) { hits = await searchMojeek(q.query, 15); via = "mojeek"; }
+      } else if (q.engine === "github") {
+        hits = process.env["GITHUB_TOKEN"] ? await searchGitHub(q.query, 10) : [];
+        if (!hits.length) { hits = await searchGitHubRepos(q.query, 3); via = "github-repo"; }
+      }
     } catch { /* ignore */ }
     hits.forEach((h) => candidates.add(h));
-    push({ level: hits.length ? "ok" : "warn", phase: "discover", message: `${q.engine}: "${q.query}" → ${hits.length}` });
+    push({ level: hits.length ? "ok" : "warn", phase: "discover", message: `${via}: "${q.query}" → ${hits.length}${hits.length ? "" : " (engellendi/boş)"}` });
     await supabaseAdmin.from("discovery_queries")
       .update({ last_run_at: new Date().toISOString(), hit_count: (q.hit_count ?? 0) + hits.length }).eq("id", q.id);
   });
@@ -58,14 +67,30 @@ export async function runDiscovery(opts: { manual?: boolean } = {}): Promise<Dis
     (await scanPastebinTrends()).forEach((p) => candidates.add(p));
   } catch { /* ignore */ }
 
-  // Always-available public playlist seeds (search engines often block worker IPs)
-  for (const c of ["tr", "us", "uk", "de", "fr", "az"]) candidates.add(`https://iptv-org.github.io/iptv/countries/${c}.m3u`);
-  for (const c of ["news", "sports", "movies", "music", "kids", "entertainment"]) candidates.add(`https://iptv-org.github.io/iptv/categories/${c}.m3u`);
+  // GitHub depo ağaçlarından playlist keşfi (anahtarsız)
+  const hour = Math.floor(Date.now() / 3600000);
+  const repoQ = GITHUB_REPO_QUERIES[hour % GITHUB_REPO_QUERIES.length];
+  const repoHits = await searchGitHubRepos(repoQ, 4);
+  repoHits.forEach((u) => candidates.add(u));
+  push({ level: repoHits.length ? "ok" : "warn", phase: "discover", message: `github-repo: "${repoQ}" → ${repoHits.length} playlist` });
+
+  // Dönüşümlü açık seed havuzu (her turda farklı dilim)
+  const SLICE = 12;
+  const start = (hour * SLICE) % SEED_PLAYLISTS.length;
+  for (let k = 0; k < SLICE; k++) candidates.add(SEED_PLAYLISTS[(start + k) % SEED_PLAYLISTS.length]);
+
+  // iptv-org açık veri toplu içe aktarım
+  try {
+    const n = await ingestIptvOrg();
+    push({ level: n ? "ok" : "info", phase: "discover", message: `iptv-org index → ${n} yeni akış (doğrulama kuyruğunda)` });
+  } catch (e) {
+    push({ level: "warn", phase: "discover", message: `iptv-org index alınamadı: ${(e as Error).message}` });
+  }
 
   // crawl_jobs only has a partial unique index, so dedupe manually instead of upsert.
   const urls = Array.from(candidates).slice(0, 200);
   if (urls.length) {
-    const since = new Date(Date.now() - 6 * 3600000).toISOString();
+    const since = new Date(Date.now() - 2 * 3600000).toISOString();
     const { data: seen } = await supabaseAdmin.from("crawl_jobs").select("url").in("url", urls).or(`status.in.(queued,running),created_at.gte.${since}`);
     const skip = new Set((seen ?? []).map((r) => r.url));
     const rows = urls.filter((u) => !skip.has(u)).map((url) => ({ url, depth: 0 }));
@@ -126,7 +151,45 @@ export async function runWorker(opts: { batch?: number } = {}): Promise<WorkerSu
         });
       }
 
-      const unique = Array.from(streams).slice(0, /\.m3u($|\?)/i.test(job.url) ? 40 : 12);
+      const isPlaylist = /\.m3u8?($|[?#])/i.test(job.url) && /#EXTINF/i.test(res.text);
+      const offset = Number(job.url.match(/#offset=(\d+)/)?.[1] ?? 0);
+      const all = Array.from(streams);
+      const CHUNK = 40;
+      if (isPlaylist && offset === 0 && all.length > CHUNK) {
+        const base = job.url.split("#")[0];
+        const chunks = [];
+        for (let o = CHUNK; o < Math.min(all.length, CHUNK * 25); o += CHUNK) chunks.push({ url: `${base}#offset=${o}`, depth: job.depth, referer: job.referer });
+        const { data: seenC } = await supabaseAdmin.from("crawl_jobs").select("url").in("url", chunks.map((c) => c.url)).in("status", ["queued", "running"]);
+        const skipC = new Set((seenC ?? []).map((r) => r.url));
+        const fresh = chunks.filter((c) => !skipC.has(c.url));
+        if (fresh.length) await supabaseAdmin.from("crawl_jobs").insert(fresh);
+        if (fresh.length) push({ level: "info", phase: "extract", message: `Playlist ${all.length} akış → ${fresh.length} parçaya bölündü` });
+      }
+      // Kendini büyüten tarama: sayfadaki playlist/oynatıcı linklerini kuyruğa ekle
+      if (!isPlaylist && job.depth < 2) {
+        const links = new Set<string>();
+        const hrefRe = /href=["']([^"'#]+)["']/gi;
+        let hm: RegExpExecArray | null;
+        while ((hm = hrefRe.exec(res.text)) && links.size < 15) {
+          try {
+            const u = new URL(hm[1], job.url);
+            if (!/^https?:$/.test(u.protocol)) continue;
+            if (/\.m3u8?($|\?)/i.test(u.pathname) && !streams.has(u.href)) links.add(u.href);
+            else if (u.host === new URL(job.url).host && /(canli|live|izle|watch|player|embed|iptv|playlist|kanal|channel)/i.test(u.pathname)) links.add(u.href);
+          } catch { /* ignore */ }
+        }
+        const arr = Array.from(links).filter((u) => u !== job.url);
+        if (arr.length) {
+          const { data: seenL } = await supabaseAdmin.from("crawl_jobs").select("url").in("url", arr);
+          const skipL = new Set((seenL ?? []).map((r) => r.url));
+          const fresh = arr.filter((u) => !skipL.has(u)).map((url) => ({ url, depth: job.depth + 1, referer: job.url }));
+          if (fresh.length) {
+            await supabaseAdmin.from("crawl_jobs").insert(fresh);
+            push({ level: "info", phase: "extract", message: `${fresh.length} yeni bağlantı takibe alındı` });
+          }
+        }
+      }
+      const unique = all.slice(offset, offset + (isPlaylist ? CHUNK : 12));
       s.candidates += unique.length;
       const title = res.text.match(TITLE_RE)?.[1] ?? "";
       const desc = res.text.match(META_DESC_RE)?.[1] ?? "";
@@ -203,7 +266,7 @@ export async function runHealthCheck(): Promise<HealthSummary> {
     .from("autonomous_streams")
     .select("id, title, stream_url, failure_count, status, choicely_id, source_website, geo_country")
     .order("last_checked_at", { ascending: true, nullsFirst: true })
-    .limit(36);
+    .limit(48);
   const buffer: LogRow[] = [{ level: "info", phase: "health", message: `Sağlık taraması: ${rows?.length ?? 0} akış` }];
   const dead: string[] = [];
 
@@ -238,4 +301,44 @@ export async function runHealthCheck(): Promise<HealthSummary> {
   if (dead.length) await notify("stream_down", "Yayın koptu", dead.slice(0, 20).join("\n"));
   await log(buffer);
   return summary;
+}
+
+
+const CAT_TR: Record<string, string> = {
+  news: "Haber", sports: "Spor", movies: "Sinema", series: "Dizi", music: "Müzik", kids: "Çocuk",
+  animation: "Çocuk", documentary: "Belgesel", religious: "Dini", general: "Ulusal", entertainment: "Eğlence",
+  comedy: "Eğlence", culture: "Kültür", classic: "Sinema",
+};
+
+/** iptv-org açık indeksinden yeni akışları toplu ekler; doğrulamayı sağlık taraması yapar. */
+export async function ingestIptvOrg(max = 1500): Promise<number> {
+  const idx = await fetchIptvOrgIndex();
+  if (!idx.length) return 0;
+  const known = new Set<string>();
+  for (let from = 0; ; from += 1000) {
+    const { data } = await supabaseAdmin.from("autonomous_streams").select("stream_url").range(from, from + 999);
+    (data ?? []).forEach((r) => known.add(r.stream_url));
+    if (!data || data.length < 1000) break;
+  }
+  // Türkiye öncelikli, sonra diğerleri
+  const fresh = idx.filter((s) => !known.has(s.url)).sort((a, b) => Number(b.country === "TR") - Number(a.country === "TR")).slice(0, max);
+  let inserted = 0;
+  for (let i = 0; i < fresh.length; i += 300) {
+    const rows = fresh.slice(i, i + 300).map((s) => {
+      const title = cleanTitle(s.title);
+      const category = CAT_TR[s.category] ?? "Diğer";
+      const headers: Record<string, string> = {};
+      if (s.referrer) headers["Referer"] = s.referrer;
+      if (s.user_agent) headers["User-Agent"] = s.user_agent;
+      return {
+        title, normalized_title: normKey(title), type: s.category === "movies" ? "movie" : s.category === "series" ? "series" : "live_tv",
+        category, stream_url: s.url, resolution: s.quality ?? "unknown", geo_country: s.country,
+        priority: 5, source: "iptv-org", source_website: "https://github.com/iptv-org/iptv",
+        custom_headers: headers as never, failover_group: normKey(title), status: "pending", is_active: false, failure_count: 0,
+      };
+    });
+    const { data, error } = await supabaseAdmin.from("autonomous_streams").insert(rows as never).select("id");
+    if (!error) inserted += data?.length ?? 0;
+  }
+  return inserted;
 }
