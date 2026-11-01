@@ -14,6 +14,7 @@ import {
   META_DESC_RE, OG_IMAGE_RE, TITLE_RE,
 } from "./regex.server";
 import { validateStream } from "./validate.server";
+import { YT_QUERIES, searchYouTube, acceptVideo } from "./youtube.server";
 
 type LogRow = { level: "info" | "ok" | "warn" | "error"; phase: string; message: string; meta?: Record<string, string | number | boolean | null> };
 
@@ -78,6 +79,14 @@ export async function runDiscovery(opts: { manual?: boolean } = {}): Promise<Dis
   const SLICE = 12;
   const start = (hour * SLICE) % SEED_PLAYLISTS.length;
   for (let k = 0; k < SLICE; k++) candidates.add(SEED_PLAYLISTS[(start + k) % SEED_PLAYLISTS.length]);
+
+  // YouTube resmi kanallardan film & dizi
+  try {
+    const r = await ingestYouTube(hour);
+    push({ level: r.inserted ? "ok" : "info", phase: "discover", message: `youtube: ${r.queries.join(", ")} → ${r.accepted} uygun, ${r.inserted} yeni` });
+  } catch (e) {
+    push({ level: "warn", phase: "discover", message: `youtube alınamadı: ${(e as Error).message}` });
+  }
 
   // iptv-org açık veri toplu içe aktarım
   try {
@@ -265,6 +274,7 @@ export async function runHealthCheck(): Promise<HealthSummary> {
   const { data: rows } = await supabaseAdmin
     .from("autonomous_streams")
     .select("id, title, stream_url, failure_count, status, choicely_id, source_website, geo_country")
+    .not("source", "like", "youtube:%")
     .order("last_checked_at", { ascending: true, nullsFirst: true })
     .limit(48);
   const buffer: LogRow[] = [{ level: "info", phase: "health", message: `Sağlık taraması: ${rows?.length ?? 0} akış` }];
@@ -341,4 +351,35 @@ export async function ingestIptvOrg(max = 1500): Promise<number> {
     if (!error) inserted += data?.length ?? 0;
   }
   return inserted;
+}
+
+
+/** Resmi YouTube kanallarındaki uzun film/dizi videolarını ekler (izleme linki olarak). */
+export async function ingestYouTube(hour: number, perRun = 4) {
+  const picks = Array.from({ length: perRun }, (_, k) => YT_QUERIES[(hour * perRun + k) % YT_QUERIES.length]);
+  const found = new Map<string, { v: Awaited<ReturnType<typeof searchYouTube>>[number]; kind: "movie" | "series" }>();
+  await pooled(picks, 4, async (p) => {
+    for (const v of await searchYouTube(p.q)) if (acceptVideo(v, p.kind) && !found.has(v.id)) found.set(v.id, { v, kind: p.kind });
+  });
+  const urls = Array.from(found.keys()).map((id) => `https://www.youtube.com/watch?v=${id}`);
+  let inserted = 0;
+  if (urls.length) {
+    const { data: ex } = await supabaseAdmin.from("autonomous_streams").select("stream_url").in("stream_url", urls);
+    const known = new Set((ex ?? []).map((r) => r.stream_url));
+    const rows = Array.from(found.values()).filter(({ v }) => !known.has(`https://www.youtube.com/watch?v=${v.id}`)).map(({ v, kind }) => {
+      const title = v.title.split("|").map((x) => x.trim()).filter(Boolean)[0] || v.title;
+      return {
+        title, normalized_title: normKey(title), type: kind, category: kind === "movie" ? "Sinema" : "Dizi",
+        stream_url: `https://www.youtube.com/watch?v=${v.id}`, poster_image_url: v.thumb,
+        resolution: "HD", quality_tier: "HD", priority: 15, source: `youtube:${v.channel}`.slice(0, 120),
+        source_website: `https://www.youtube.com/embed/${v.id}`, custom_headers: { player: "youtube", videoId: v.id, durationSec: v.seconds } as never,
+        failover_group: normKey(title), status: "active", is_active: true, failure_count: 0, last_checked_at: new Date().toISOString(),
+      };
+    });
+    if (rows.length) {
+      const { data, error } = await supabaseAdmin.from("autonomous_streams").insert(rows as never).select("id");
+      if (!error) inserted = data?.length ?? 0;
+    }
+  }
+  return { queries: picks.map((p) => p.q), accepted: found.size, inserted };
 }
