@@ -1,4 +1,4 @@
-// Madde 6: AI destekli içerik eşleştirme (Lovable AI Gateway → Gemini 2.5 Flash).
+// Madde 6: AI destekli içerik eşleştirme (Lovable AI Gateway → Gemini 3.1 Flash Lite).
 type ClassifyResult = {
   title: string;
   type: "live_tv" | "movie" | "series" | "radio";
@@ -34,7 +34,7 @@ Sadece JSON döndür, açıklama yok.`;
         "Lovable-API-Key": key,
       },
       body: JSON.stringify({
-        model: "google/gemini-2.5-flash-lite",
+        model: "google/gemini-3.1-flash-lite",
         messages: [
           { role: "system", content: system },
           { role: "user", content: user },
